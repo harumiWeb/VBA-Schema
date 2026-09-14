@@ -1,0 +1,8 @@
+# Excel
+~$*.xls*
+*.tmp
+*.xlam
+
+# xlflow
+.xlflow/
+build/

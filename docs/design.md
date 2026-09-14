@@ -1,0 +1,1785 @@
+# VBA-Schema Design Specification
+
+## 1. Overview
+
+### 1.1 Project name
+
+仮称:
+
+**VBA-Schema**
+
+A lightweight schema validation library for VBA.
+
+### 1.2 Concept
+
+VBA-Schemaは、TypeScriptのZodに着想を得た、VBA向けの宣言的なランタイムバリデーションライブラリである。
+
+以下のようなデータに対して、スキーマを定義し、構造・型・制約を検証できることを目的とする。
+
+* `Variant`
+* `String`
+* 数値型
+* `Boolean`
+* `Date`
+* `Collection`
+* 配列
+* `Scripting.Dictionary`
+* JSONパーサによって生成されたDictionary / Collection構造
+* Excelセルや外部APIから取得した値
+
+典型的な利用例:
+
+```vb
+Dim UserSchema As VSchema
+
+Set UserSchema = Schema.Object() _
+    .Field("name", Schema.String().Min(1).Max(100)) _
+    .Field("age", Schema.Number().Integer().Min(0)) _
+    .Field("email", Schema.String().Email()) _
+    .Field("tags", Schema.ArrayOf(Schema.String()).Optional())
+
+Dim Result As VValidationResult
+Set Result = UserSchema.SafeParse(UserData)
+
+If Not Result.Success Then
+    Debug.Print Result.ErrorText
+End If
+```
+
+---
+
+# 2. Design Goals
+
+## 2.1 Primary goals
+
+VBA-Schemaは以下を最優先する。
+
+### Small distribution footprint
+
+配布物は必ず以下の3モジュール以内とする。
+
+```text
+Schema.bas
+VSchema.cls
+VValidationResult.cls
+```
+
+**4個目のVBAモジュールを追加してはならない。**
+
+新しいschema type、constraint、error type等を追加する場合も、この3モジュール内部で実装する。
+
+### Zero dependencies
+
+外部ライブラリへの参照設定を要求しない。
+
+必要に応じてlate bindingを使用する。
+
+例:
+
+```vb
+CreateObject("Scripting.Dictionary")
+CreateObject("VBScript.RegExp")
+```
+
+ユーザーに以下を要求してはならない。
+
+```text
+Microsoft Scripting Runtime
+Microsoft VBScript Regular Expressions
+```
+
+### Easy installation
+
+通常のVBAユーザーが3ファイルをインポートするだけで利用できること。
+
+Package managerやxlflowを必須にしてはならない。
+
+### Fluent API
+
+スキーマを宣言的かつ連鎖的に定義できること。
+
+```vb
+Schema.String().Min(1).Max(100)
+```
+
+### Useful errors
+
+単なるBooleanではなく、
+
+* どこで
+* 何を期待して
+* 実際に何を受け取り
+* なぜ失敗したか
+
+を取得できること。
+
+---
+
+# 3. Non-goals
+
+v1では以下を対象外とする。
+
+## 3.1 Compile-time type system
+
+VBAの静的型検査機構を構築するものではない。
+
+VBA-Schemaはruntime validation libraryである。
+
+## 3.2 Zod API完全互換
+
+ZodのAPIをそのまま再現しない。
+
+特に以下はv1では実装しない。
+
+* `refine`
+* `superRefine`
+* 任意callback validator
+* `transform`
+* preprocess pipeline
+* discriminated union optimization
+* recursive/lazy schema
+* branded types
+* Promise / async
+* schema inferenceによるVBA型生成
+
+## 3.3 Class-per-schema architecture
+
+以下のような設計は禁止する。
+
+```text
+VStringSchema.cls
+VNumberSchema.cls
+VObjectSchema.cls
+VArraySchema.cls
+VUnionSchema.cls
+VValidationIssue.cls
+```
+
+すべて`VSchema.cls`で表現する。
+
+---
+
+# 4. Hard Architecture Constraint
+
+## ADR-001: Maximum Three VBA Modules
+
+配布物は以下のみとする。
+
+```text
+Schema.bas
+VSchema.cls
+VValidationResult.cls
+```
+
+理由:
+
+1. VBAではライブラリ導入時にモジュール数がUXへ直接影響する。
+2. ファイル数が多いライブラリは既存Workbookへ導入しづらい。
+3. コピー・削除・アップデートが容易であることを重視する。
+4. 小規模ライブラリとしての訴求力を維持する。
+5. VBA-JSON等と同様の「簡単に持ち込める」導入体験を目指す。
+
+この制約は内部設計の美しさより優先される。
+
+ただし、コード品質を保つため`VSchema.cls`内部ではprivate procedureを責務ごとに明確に分割する。
+
+---
+
+# 5. Module Architecture
+
+```text
+┌───────────────────────┐
+│      Schema.bas       │
+│                       │
+│ Public factory API    │
+└───────────┬───────────┘
+            │ creates
+            ▼
+┌───────────────────────┐
+│      VSchema.cls      │
+│                       │
+│ Schema definition     │
+│ Constraint storage    │
+│ Recursive validation  │
+│ Type handling         │
+└───────────┬───────────┘
+            │ produces
+            ▼
+┌───────────────────────────┐
+│ VValidationResult.cls     │
+│                           │
+│ Success                   │
+│ Value                     │
+│ Issues                    │
+│ ErrorText                 │
+└───────────────────────────┘
+```
+
+---
+
+# 6. Public API
+
+## 6.1 Schema.bas
+
+`Schema.bas`はユーザー向けFactory APIのみを提供する。
+
+Public stateを持たない。
+
+### Required factories
+
+```vb
+Schema.Any()
+Schema.String()
+Schema.Number()
+Schema.Boolean()
+Schema.Date()
+Schema.Object()
+Schema.ArrayOf(ItemSchema)
+Schema.Literal(Value)
+Schema.EnumOf(Values)
+Schema.UnionOf(Schemas)
+```
+
+VBA予約語や標準関数との衝突が発生する場合、Public APIとして最も自然な命名を選択しつつ、内部実装名を分離する。
+
+利用例:
+
+```vb
+Set SchemaDef = Schema.String()
+```
+
+が実際のVBA構文上成立しない場合は、
+
+```vb
+Schema.Text()
+Schema.Number()
+Schema.Bool()
+Schema.DateValue()
+```
+
+等を採用してよい。
+
+ただし、API命名は実装開始時に実際のVBE compile oracleで検証し、READMEとテストで固定すること。
+
+---
+
+# 7. VSchema
+
+## 7.1 Responsibility
+
+`VSchema`は以下を担当する。
+
+* schema kind保持
+* modifier保持
+* constraint保持
+* child schema保持
+* object fields保持
+* validation実行
+* nested validation
+* error生成
+
+---
+
+# 8. Schema Kinds
+
+内部的には一つのEnumでschema typeを表現する。
+
+```vb
+Private Enum SchemaKind
+    skAny = 0
+    skString
+    skNumber
+    skBoolean
+    skDate
+    skObject
+    skArray
+    skLiteral
+    skEnum
+    skUnion
+End Enum
+```
+
+Enumは外部公開しない。
+
+必要に応じて`Friend`相当の設計を避け、factoryからprivate initializerを呼べない場合はPublicだがUndocumentedな初期化APIを使用する。
+
+例:
+
+```vb
+Public Function Init(ByVal KindCode As Long) As VSchema
+```
+
+ただし通常ユーザーが直接使用することは想定しない。
+
+---
+
+# 9. Schema State
+
+`VSchema`は概ね以下のstateを保持する。
+
+```vb
+Private mKind As Long
+
+Private mOptional As Boolean
+Private mNullable As Boolean
+
+Private mHasMin As Boolean
+Private mMinValue As Double
+
+Private mHasMax As Boolean
+Private mMaxValue As Double
+
+Private mHasLength As Boolean
+Private mLengthValue As Long
+
+Private mIntegerOnly As Boolean
+Private mEmail As Boolean
+
+Private mPattern As String
+
+Private mFields As Object
+Private mItemSchema As VSchema
+
+Private mLiteralValue As Variant
+Private mEnumValues As Variant
+Private mUnionSchemas As Collection
+
+Private mObjectMode As Long
+```
+
+必ずしも上記と完全一致する必要はないが、**constraintごとの専用クラスを作成してはならない。**
+
+---
+
+# 10. Fluent Modifiers
+
+## 10.1 Optional
+
+```vb
+Schema.String().Optional()
+```
+
+Missing fieldを許可する。
+
+Object fieldとして使用された場合に意味を持つ。
+
+単体値に対して`Empty`をOptionalとして扱うかどうかは曖昧にしない。
+
+v1では:
+
+```text
+Missing field ≠ Empty
+```
+
+とする。
+
+Dictionaryにキー自体が存在しない場合のみOptionalとして許可する。
+
+---
+
+## 10.2 Nullable
+
+```vb
+Schema.String().Nullable()
+```
+
+`Null`を許可する。
+
+---
+
+## 10.3 Min
+
+String:
+
+```vb
+Schema.String().Min(3)
+```
+
+文字列長の最小値。
+
+Number:
+
+```vb
+Schema.Number().Min(0)
+```
+
+数値の最小値。
+
+Array:
+
+将来的に配列要素数へ適用可能だが、v1では実装対象としてよい。
+
+---
+
+## 10.4 Max
+
+`Min`と同様。
+
+---
+
+## 10.5 Length
+
+```vb
+Schema.String().Length(8)
+```
+
+厳密な文字列長。
+
+Arrayへの利用も許可してよい。
+
+---
+
+## 10.6 Integer
+
+```vb
+Schema.Number().Integer()
+```
+
+整数のみ許可する。
+
+以下はtrue:
+
+```text
+1
+0
+-10
+```
+
+以下はfalse:
+
+```text
+1.5
+10.01
+```
+
+VBA型が`Double`でも数学的に整数であれば許可する。
+
+---
+
+## 10.7 Positive / Negative
+
+v1.1以降でもよい。
+
+実装する場合:
+
+```vb
+.Positive()   ' > 0
+.NonNegative() ' >= 0
+.Negative()   ' < 0
+.NonPositive() ' <= 0
+```
+
+既存の`Min/Max` validationへ変換してもよい。
+
+---
+
+## 10.8 Pattern
+
+```vb
+Schema.String().Pattern("^[A-Z]{3}-\d{4}$")
+```
+
+`VBScript.RegExp`をlate bindingで使用する。
+
+RegExp instanceはschema生成時ではなくvalidation時またはlazy cacheで生成する。
+
+---
+
+## 10.9 Email
+
+```vb
+Schema.String().Email()
+```
+
+Email validationはRFC完全準拠を目指さない。
+
+目的は典型的な入力ミス検出である。
+
+過剰に厳格な正規表現を使用してはならない。
+
+---
+
+# 11. Object Schema
+
+## 11.1 Definition
+
+```vb
+Set UserSchema = Schema.Object() _
+    .Field("name", Schema.String()) _
+    .Field("age", Schema.Number().Optional())
+```
+
+内部ではfield nameと`VSchema`をDictionaryに保持する。
+
+```vb
+Private mFields As Object
+```
+
+生成:
+
+```vb
+Set mFields = CreateObject("Scripting.Dictionary")
+```
+
+---
+
+## 11.2 Input
+
+v1で正式サポートするObject input:
+
+```text
+Scripting.Dictionary
+```
+
+late-bound Dictionaryも含む。
+
+`Collection`をkey-value objectとして扱わない。
+
+一般VBA class instanceのreflectionは実施しない。
+
+---
+
+# 12. Unknown Field Policy
+
+Objectはunknown fieldの扱いを制御する。
+
+## Default
+
+```text
+Passthrough
+```
+
+schemaに存在しないfieldがあってもvalidation成功。
+
+## Strict
+
+```vb
+Schema.Object() _
+    .Field("name", Schema.String()) _
+    .Strict()
+```
+
+未定義fieldが存在すればvalidation error。
+
+## Strip
+
+v1では実装しなくてもよい。
+
+なぜなら入力データ自体を書き換えるmutation semanticsが複雑になるため。
+
+---
+
+# 13. Array Schema
+
+```vb
+Schema.ArrayOf(Schema.String())
+```
+
+対応対象:
+
+* VBA native array
+* `Collection`
+
+可能であればJSON parserが生成するCollectionにも対応する。
+
+Dictionaryをarrayとして扱ってはならない。
+
+---
+
+# 14. Literal Schema
+
+```vb
+Schema.Literal("active")
+```
+
+比較にはVBAのVariant比較による曖昧なcoercionを避ける。
+
+以下は原則異なるものとして扱う。
+
+```text
+"1"
+1
+True
+```
+
+Literal比較では型も考慮する。
+
+---
+
+# 15. Enum Schema
+
+推奨API:
+
+```vb
+Schema.EnumOf(Array("pending", "active", "disabled"))
+```
+
+受信値が候補のどれかと一致すれば成功。
+
+comparison semanticsはLiteralと同じ。
+
+---
+
+# 16. Union Schema
+
+```vb
+Schema.UnionOf(Array( _
+    Schema.String(), _
+    Schema.Number() _
+))
+```
+
+VBA object arrayの扱いが不自然になる場合はCollection APIを許可する。
+
+例:
+
+```vb
+Dim Options As New Collection
+
+Options.Add Schema.String()
+Options.Add Schema.Number()
+
+Set S = Schema.UnionOf(Options)
+```
+
+Union validationは順番に試し、一つでも成功すれば成功。
+
+全失敗時には各branchの全エラーをそのまま並べるのではなく、トップレベルに簡潔なunion errorを返す。
+
+必要に応じて詳細branch errorを内部保持してもよい。
+
+---
+
+# 17. Validation API
+
+## 17.1 SafeParse
+
+基本API。
+
+```vb
+Dim Result As VValidationResult
+Set Result = UserSchema.SafeParse(Data)
+```
+
+失敗時にもVBA runtime errorを投げない。
+
+---
+
+## 17.2 Parse
+
+任意実装。
+
+```vb
+Value = UserSchema.Parse(Data)
+```
+
+validation failure時に`Err.Raise`する。
+
+ただしVBAではObject/Variant return semanticsが複雑になるため、v1では`SafeParse`をprimary APIとする。
+
+`Parse`がAPIを不必要に複雑化する場合はv1.1へ延期してよい。
+
+---
+
+# 18. VValidationResult
+
+## 18.1 Public API
+
+最低限以下を提供する。
+
+```vb
+Result.Success
+Result.Value
+Result.Issues
+Result.ErrorText
+```
+
+### Success
+
+```vb
+Public Property Get Success() As Boolean
+```
+
+### Value
+
+元のvalidated valueを返す。
+
+v1ではtransformを行わないため、基本的にinput valueそのもの。
+
+Objectの場合もdeep copyを行わない。
+
+### Issues
+
+`Collection`を返す。
+
+各issueはlate-bound `Scripting.Dictionary`として表現する。
+
+専用`VValidationIssue.cls`は作成しない。
+
+---
+
+# 19. Validation Issue Structure
+
+各issueは最低限以下を持つ。
+
+```text
+path
+code
+message
+expected
+received
+```
+
+例:
+
+```text
+path     = "users[2].email"
+code     = "invalid_email"
+message  = "Invalid email address"
+expected = "email"
+received = "foo"
+```
+
+Dictionary例:
+
+```vb
+Issue("path")
+Issue("code")
+Issue("message")
+Issue("expected")
+Issue("received")
+```
+
+---
+
+# 20. Error Codes
+
+error message文字列ではなく、machine-readableなcodeを必ず持たせる。
+
+初期code:
+
+```text
+required
+invalid_type
+too_small
+too_big
+invalid_length
+invalid_integer
+invalid_pattern
+invalid_email
+invalid_literal
+invalid_enum
+invalid_union
+unknown_field
+```
+
+codeは将来的なbreaking changeを避けるためREADMEで公開仕様とする。
+
+---
+
+# 21. Path Format
+
+nested error locationは以下の形式に統一する。
+
+Object:
+
+```text
+user.name
+```
+
+Array:
+
+```text
+users[2]
+```
+
+Nested:
+
+```text
+users[2].address.zip
+```
+
+root:
+
+```text
+$
+```
+
+内部的には文字列としてpathを構築してよい。
+
+v1ではpath segment専用クラスを持たない。
+
+---
+
+# 22. ErrorText
+
+`VValidationResult.ErrorText`は人間向け表示を返す。
+
+例:
+
+```text
+Validation failed with 3 issues:
+
+users[2].email
+  Invalid email address
+
+users[2].age
+  Expected number >= 18, received 16
+
+settings.timeout
+  Expected Number, received String
+```
+
+フォーマットはテストで固定する。
+
+ただしIssue collectionが正式なmachine-readable APIであり、`ErrorText`はpresentation APIと位置づける。
+
+---
+
+# 23. Type Semantics
+
+ここはVBA特有の曖昧さがあるため厳密に定義する。
+
+## String
+
+基本的には:
+
+```vb
+VarType(Value) = vbString
+```
+
+のみ許可する。
+
+数値から文字列への自動変換を行わない。
+
+---
+
+## Number
+
+以下をNumberとして扱う。
+
+```text
+Byte
+Integer
+Long
+Single
+Double
+Currency
+Decimal Variant
+LongLong where available
+```
+
+Booleanは数値として扱わない。
+
+Dateも内部的には数値だがNumberとして扱わない。
+
+---
+
+## Boolean
+
+`vbBoolean`のみ。
+
+`0/-1`をBooleanへ自動変換しない。
+
+---
+
+## Date
+
+`vbDate`のみ。
+
+日付文字列を自動parseしない。
+
+---
+
+## Null
+
+Nullable指定時のみ許可。
+
+---
+
+## Empty
+
+Nullとは区別する。
+
+v1では通常のschemaに対してvalidation failureとする。
+
+`Any()`のみ許可。
+
+---
+
+## Error Variant
+
+通常validation failure。
+
+---
+
+# 24. No Implicit Coercion
+
+VBA-Schemaの重要な設計原則。
+
+以下を自動変換してはならない。
+
+```text
+"123" → Number
+123 → String
+0 → Boolean
+"2026-01-01" → Date
+```
+
+理由:
+
+validation libraryが暗黙変換を行うと、データ境界での不正値を隠してしまうため。
+
+将来的にcoercion APIを提供する場合は明示APIとする。
+
+例:
+
+```text
+Schema.Coerce.Number()
+```
+
+ただしv1対象外。
+
+---
+
+# 25. Validation Algorithm
+
+概念的には以下。
+
+```text
+Validate(schema, value, path)
+
+1. Null / Empty / Optional処理
+2. schema kind dispatch
+3. 基本型validation
+4. schema-specific constraint
+5. nested validation
+6. issue collectionへ追加
+```
+
+pseudo code:
+
+```vb
+Private Sub ValidateValue( _
+    ByVal Value As Variant, _
+    ByVal Path As String, _
+    ByRef Issues As Collection)
+
+    If HandleNullability(...) Then Exit Sub
+
+    Select Case mKind
+        Case skAny
+            Exit Sub
+
+        Case skString
+            ValidateString Value, Path, Issues
+
+        Case skNumber
+            ValidateNumber Value, Path, Issues
+
+        Case skObject
+            ValidateObject Value, Path, Issues
+
+        Case skArray
+            ValidateArray Value, Path, Issues
+
+        ' ...
+    End Select
+End Sub
+```
+
+巨大な1 procedureにしてはならない。
+
+kindごとにprivate validation procedureへ分割する。
+
+---
+
+# 26. Object Validation Algorithm
+
+```text
+ValidateObject(value, path):
+
+1. Dictionary-like objectか確認
+2. schema fieldsを列挙
+3. inputにkeyが存在するか確認
+4. 無ければOptional判定
+5. あればchild schemaをrecursive validation
+6. Strictの場合はinput keysを列挙
+7. schemaに存在しないkeyをunknown_fieldとして追加
+```
+
+---
+
+# 27. Array Validation Algorithm
+
+```text
+ValidateArray(value, path):
+
+1. VBA arrayかCollectionか判定
+2. length constraintを検証
+3. 各要素に対してchild schemaを再帰的に実行
+4. pathに[index]を追加
+```
+
+native VBA arrayでは`LBound` / `UBound`を使用。
+
+空配列や未初期化dynamic arrayでruntime errorを起こさないよう注意する。
+
+このケース専用の安全なarray detection helperを実装する。
+
+---
+
+# 28. Object Detection
+
+VBAにはinterface reflectionがないため、v1ではDictionaryを明示的に対象とする。
+
+可能な判定:
+
+```vb
+TypeName(Value) = "Dictionary"
+```
+
+ただし環境差を考慮する。
+
+`Object`を受け取り`.Exists`を試すようなexception-driven duck typingは乱用しない。
+
+必要な場合は限定的なhelperで行う。
+
+---
+
+# 29. Performance Requirements
+
+一般的なVBA validation用途で十分高速であること。
+
+目標:
+
+```text
+1,000 scalar fields:
+体感上即時
+
+10,000 scalar validations:
+実用的な時間内
+```
+
+micro-optimizationより以下を優先する。
+
+* runtime errorをvalidation flowに使わない
+* RegExpの不要な再生成を避ける
+* Dictionary lookupを活用
+* 不要なdeep copyをしない
+* error object生成を失敗時だけ行う
+
+---
+
+# 30. Mutation Policy
+
+v1では入力を変更しない。
+
+以下は禁止。
+
+```text
+unknown field削除
+string trim
+type coercion
+default値注入
+object再構築
+```
+
+したがって:
+
+```vb
+Result.Value
+```
+
+は原則として入力値そのものを返す。
+
+---
+
+# 31. Error Handling
+
+validation failureとlibrary bugを区別する。
+
+## Validation failure
+
+`SafeParse`ではErrを投げない。
+
+Result:
+
+```text
+Success = False
+Issues.Count > 0
+```
+
+## Programmer misuse
+
+例:
+
+```vb
+Schema.String().Min(-1)
+Schema.ArrayOf(Nothing)
+.Field("", Nothing)
+```
+
+これはAPI misuseであるため`Err.Raise`してよい。
+
+Error numberは独自範囲を定義する。
+
+例:
+
+```vb
+vbObjectError + 2100
+```
+
+---
+
+# 32. Fluent API Mutation Semantics
+
+builder methodは基本的に同一instanceを変更し、自身を返す。
+
+```vb
+Public Function Min(ByVal Value As Double) As VSchema
+    mHasMin = True
+    mMinValue = Value
+    Set Min = Me
+End Function
+```
+
+これにより:
+
+```vb
+Schema.Number().Min(0).Max(100).Integer()
+```
+
+を成立させる。
+
+schema immutable設計はVBAではallocationと実装量を増やすため採用しない。
+
+---
+
+# 33. Schema Reuse Warning
+
+mutable builderであるため、以下の挙動をREADMEで説明する。
+
+```vb
+Dim Base As VSchema
+Set Base = Schema.String()
+
+Dim A As VSchema
+Set A = Base.Min(1)
+```
+
+`A`と`Base`は同一object。
+
+immutable clone APIはv1対象外。
+
+---
+
+# 34. Documentation Example
+
+README冒頭は導入コストの低さを強調する。
+
+```text
+Modern schema validation for VBA.
+
+3 files.
+0 dependencies.
+No references required.
+```
+
+Example:
+
+```vb
+Dim UserSchema As VSchema
+
+Set UserSchema = Schema.Object() _
+    .Field("name", Schema.String().Min(1)) _
+    .Field("age", Schema.Number().Integer().Min(0)) _
+    .Field("email", Schema.String().Email())
+
+Dim Result As VValidationResult
+Set Result = UserSchema.SafeParse(Data)
+
+If Result.Success Then
+    Debug.Print "Valid"
+Else
+    Debug.Print Result.ErrorText
+End If
+```
+
+---
+
+# 35. Compatibility
+
+Target:
+
+```text
+VBA7
+Office 2016+
+64-bit Office
+```
+
+可能な範囲で古いVBAにも対応する。
+
+Windowsをprimary targetとする。
+
+ただしmacOS Officeでも利用できるよう、Windows API依存は禁止する。
+
+`VBScript.RegExp`はmacOS compatibilityを確認する必要がある。
+
+macOSで利用不可の場合、Pattern/Email implementationはpure VBA implementationまたはoptional fallbackを検討する。
+
+**コアvalidationがWindows専用になってはならない。**
+
+---
+
+# 36. Testing Strategy
+
+テストはxlflowを使用して自動実行可能にする。
+
+最低限以下のカテゴリを用意する。
+
+```text
+tests/
+├── TestString.bas
+├── TestNumber.bas
+├── TestBoolean.bas
+├── TestDate.bas
+├── TestObject.bas
+├── TestArray.bas
+├── TestOptional.bas
+├── TestNullable.bas
+├── TestLiteral.bas
+├── TestEnum.bas
+├── TestUnion.bas
+├── TestErrors.bas
+└── TestIntegration.bas
+```
+
+テストモジュール数は配布物の3モジュール制約には含めない。
+
+---
+
+# 37. Required Test Cases
+
+## Strings
+
+```text
+valid string
+wrong type
+Min boundary
+Max boundary
+Length
+empty string
+Pattern pass/fail
+Email pass/fail
+Null
+Empty
+```
+
+## Numbers
+
+```text
+Byte
+Integer
+Long
+Single
+Double
+Currency
+minimum
+maximum
+integer
+fraction
+Boolean rejection
+Date rejection
+numeric string rejection
+```
+
+## Object
+
+```text
+required field present
+required field missing
+optional field missing
+nested object
+multiple errors
+strict unknown field
+dictionary input
+wrong input type
+```
+
+## Array
+
+```text
+native array
+Collection
+empty array
+nested array
+wrong element
+correct error index
+```
+
+## Literal
+
+```text
+correct value
+wrong value
+same textual representation but different type
+```
+
+## Union
+
+```text
+first branch success
+later branch success
+all branches fail
+nested union
+```
+
+## Error path
+
+```text
+$
+user.name
+users[0]
+users[2].email
+orders[1].items[4].price
+```
+
+---
+
+# 38. Regression Testing
+
+すべてのbug fixには再現テストを追加する。
+
+validation semanticsを変更する修正は必ず既存テストへの影響を確認する。
+
+AIエージェントはbug修正時にproduction codeだけ変更してはならない。
+
+---
+
+# 39. Code Quality Requirements
+
+全module:
+
+```vb
+Option Explicit
+```
+
+必須。
+
+以下を避ける。
+
+```text
+Select
+Activate
+On Error Resume Next の広範囲利用
+暗黙Variant
+Public mutable field
+unqualified Excel object references
+Windows API
+```
+
+Excel object modelそのものへの依存は原則禁止する。
+
+VBA-SchemaはExcel専用ではなく、VBA runtime libraryとして設計する。
+
+---
+
+# 40. xlflow Dogfooding
+
+開発にはxlflowを使用する。
+
+CIまたはローカル開発で最低限:
+
+```text
+xlflow test
+xlflow lint
+xlflow fmt
+```
+
+を通す。
+
+可能であればVBE compile oracleも利用する。
+
+APIサンプルについては実際にExcel/VBEでcompileできることを検証する。
+
+---
+
+# 41. Repository Structure
+
+推奨:
+
+```text
+vba-schema/
+├── src/
+│   ├── Schema.bas
+│   ├── VSchema.cls
+│   └── VValidationResult.cls
+│
+├── tests/
+│   ├── TestString.bas
+│   ├── TestNumber.bas
+│   ├── TestObject.bas
+│   ├── TestArray.bas
+│   └── ...
+│
+├── examples/
+│   └── Example.bas
+│
+├── docs/
+│   ├── design.md
+│   └── api.md
+│
+├── README.md
+├── LICENSE
+└── THIRD_PARTY_NOTICES.md
+```
+
+依存物がなければ`THIRD_PARTY_NOTICES.md`は不要。
+
+---
+
+# 42. Implementation Phases
+
+## Phase 1 — Core infrastructure
+
+実装:
+
+```text
+Schema.bas
+VSchema.cls
+VValidationResult.cls
+```
+
+対象schema:
+
+```text
+Any
+String
+Number
+Boolean
+Date
+```
+
+対象API:
+
+```text
+SafeParse
+Optional
+Nullable
+Min
+Max
+Length
+Integer
+```
+
+Acceptance criteria:
+
+* compile成功
+* scalar validation tests成功
+* error path `$`
+* zero external references
+* exactly 3 distributed modules
+
+---
+
+## Phase 2 — Object validation
+
+実装:
+
+```text
+Object
+Field
+nested Object
+Optional field
+Strict
+```
+
+Acceptance criteria:
+
+```vb
+Schema.Object() _
+    .Field("name", Schema.String()) _
+    .Field("age", Schema.Number().Optional())
+```
+
+が動作する。
+
+nested path:
+
+```text
+user.address.zip
+```
+
+が正しく生成される。
+
+---
+
+## Phase 3 — Arrays
+
+実装:
+
+```text
+ArrayOf
+native VBA arrays
+Collection
+nested arrays
+```
+
+path:
+
+```text
+users[3].email
+```
+
+を生成できる。
+
+---
+
+## Phase 4 — Value constraints
+
+実装:
+
+```text
+Literal
+Enum
+Pattern
+Email
+```
+
+---
+
+## Phase 5 — Union
+
+実装:
+
+```text
+UnionOf
+```
+
+error outputを整理する。
+
+---
+
+## Phase 6 — Documentation and hardening
+
+実施:
+
+```text
+README
+API reference
+Examples
+edge cases
+32-bit Office validation
+64-bit Office validation
+macOS compatibility investigation
+performance benchmark
+```
+
+---
+
+# 43. MVP Definition
+
+v1.0で最低限提供するもの:
+
+```text
+Any
+String
+Number
+Boolean
+Date
+Object
+ArrayOf
+Literal
+EnumOf
+UnionOf
+
+Optional
+Nullable
+
+Min
+Max
+Length
+Integer
+Pattern
+Email
+
+Field
+Strict
+
+SafeParse
+
+Success
+Value
+Issues
+ErrorText
+```
+
+---
+
+# 44. v1.0 Exclusions
+
+明示的にv1.0へ入れない。
+
+```text
+Transform
+Refine
+SuperRefine
+Callback validator
+Default values
+Coercion
+Strip unknown fields
+Recursive schemas
+Class object reflection
+OpenAPI generation
+JSON parsing
+HTTP
+Schema serialization
+Code generation
+```
+
+これらはコアAPIが安定した後に検討する。
+
+---
+
+# 45. Future Extensions
+
+## OpenAPI integration
+
+将来的に:
+
+```text
+OpenAPI Schema
+      ↓
+generated VBA-Schema definition
+      ↓
+VBA-HTTP response
+      ↓
+runtime validation
+```
+
+を実現可能。
+
+例:
+
+```vb
+Set User = UserSchema.SafeParse(Response.Json)
+```
+
+ただしOpenAPI generatorは別プロジェクトまたはbuild-time toolingとし、VBA-Schema本体を肥大化させない。
+
+---
+
+# 46. Design Principles for AI Agents
+
+AIエージェントは実装時に以下を厳守する。
+
+### 1. Do not add modules
+
+新規`.bas` / `.cls` / `.frm`をproduction sourceへ追加しない。
+
+### 2. Prefer private procedures over classes
+
+責務分離が必要なら:
+
+```text
+Private ValidateString
+Private ValidateNumber
+Private ValidateObject
+Private ValidateArray
+Private AddIssue
+Private BuildPath
+```
+
+のように分割する。
+
+### 3. Do not over-engineer
+
+以下を導入しない。
+
+```text
+dependency injection
+interface hierarchy
+visitor pattern
+factory classes
+constraint classes
+error classes
+schema subclasses
+```
+
+### 4. Tests before extensions
+
+新機能追加時:
+
+```text
+1. failing test
+2. minimal implementation
+3. full tests
+4. lint
+5. compile validation
+```
+
+の順を基本とする。
+
+### 5. Preserve strict semantics
+
+便利だからという理由で暗黙type coercionを追加しない。
+
+### 6. Public API stability matters
+
+Public method名やerror code変更はbreaking changeとして扱う。
+
+---
+
+# 47. Definition of Done
+
+v1.0は以下をすべて満たした時点で完成とする。
+
+* Production sourceが3 VBA modulesのみ
+* External dependencyなし
+* Reference設定不要
+* String / Number / Boolean / Date対応
+* Object / nested Object対応
+* Array / Collection対応
+* Optional / Nullable対応
+* Literal / Enum / Union対応
+* path付きvalidation errors
+* machine-readable error codes
+* human-readable `ErrorText`
+* Strict object validation
+* Pattern / Email
+* 64-bit VBA compile成功
+* xlflow test成功
+* xlflow lint成功
+* READMEにinstallation / examples / API overviewあり
+* 主要Public APIに回帰テストあり
+* 配布ファイルを手動インポートして利用可能
+
+---
+
+# 48. Product Positioning
+
+VBA-Schemaの価値は「VBAでZodを完全再現したこと」ではない。
+
+価値は、
+
+> Modern schema validation for VBA with almost zero installation cost.
+
+を実現することにある。
+
+プロジェクトとして維持すべき特徴は:
+
+```text
+3 files
+0 dependencies
+declarative schemas
+strict runtime validation
+structured errors
+works with ordinary VBA projects
+```
+
+である。
+
+機能追加によってこの特徴が失われる場合、その機能は本体へ追加しない。
+
+**Small size is a feature, not an implementation detail.**
