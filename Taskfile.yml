@@ -75,6 +75,11 @@ tasks:
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-verify.ps1
 
+  release-package:
+    desc: Package the three-file VBA-Release asset (use TAG=v0.0.0)
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/package-release.ps1 -Tag "{{.TAG}}"
+
   release-safety-test:
     desc: Verify release staging rejects protected repository paths
     cmds:

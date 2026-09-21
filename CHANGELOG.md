@@ -11,6 +11,7 @@
 - Windows 64-bit専用runtime benchmark、tracked baseline、Excel-free release staging/verificationを追加。
 - `LICENSE`へ標準MITライセンス本文を追加。
 - 利用者向けの注文・設定・APIレスポンスsampleと、sample専用のformat/lint/analyze検証を追加。
+- `vMAJOR.MINOR.PATCH` tag pushでsource-checkを先行実行し、3モジュールだけを含む`VBA-Release-vX.Y.Z.zip`をGitHub Releaseへ添付するworkflowを追加。
 
 ## v1.0.0
 

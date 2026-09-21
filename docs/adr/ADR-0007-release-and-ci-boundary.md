@@ -19,6 +19,7 @@ VBA-Schemaは利用者がVBEへimportするproduction sourceを3ファイルに�
 - `tools/release-stage.ps1`は、Destinationがrepository root、production source tree（`src`）、xlflow管理領域（`.git`、`.xlflow`）、または検証用workbook（`build`）と重なる場合、削除処理より前に失敗させる。任意のrepository内パスを受け付ける場合でも、保護対象の子孫・祖先との重複を許可しない。
 - GitHub-hosted CIはExcel不要の`lint`、`analyze`、format check、test discoveryを実行する。Windows Excel/VBE compileとbehavioral testsは別のlocal/self-hosted checkとして扱い、status名にも`vbe`または`excel`を含めて検証範囲を明示する。
 - Excelなしのstatic CIをVBE compile passedとは表示しない。macOS/Windows 32-bit用matrixは実機検証を取得した時点で別jobとして追加する。
+- GitHub Release workflowは`vMAJOR.MINOR.PATCH`のstable tag pushだけを受理し、再利用可能な`source-check`を先行実行する。成功後、`VBA-Release-vX.Y.Z.zip`を作成し、`VBA-Release/`直下へproduction 3ファイルだけを格納する。既存Releaseへの再実行は同名assetをclobberして更新する。
 
 ## Consequences
 
@@ -26,6 +27,7 @@ VBA-Schemaは利用者がVBEへimportするproduction sourceを3ファイルに�
 - versionのsingle sourceはGit tagとなるため、VBA project内から実行時にversionを取得するAPIはv1では提供しない。
 - CIはExcel不要の失敗を早く検出できる一方、VBE compileの合否は別の実行環境に依存し、static CIだけでは証明できない。
 - UTF-8/LFの検証によりrelease payloadのencoding差異を早期に検出できる。VBE import hostの実機差異はWindows 64-bit検証済み、macOS/32-bit未検証として残る。
+- prerelease tagは明示的に対象外となるため、将来対応する場合はtag検証、CHANGELOG、Release note、pre-release表示を別の設計判断として更新する必要がある。
 
 ## Rationale
 

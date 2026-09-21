@@ -76,6 +76,7 @@ docs/specs/v1-contract.md
 - M7、MITライセンス、M8レビュー指摘（release staging安全性・benchmark環境ゲート）はコミット済み。独立Pass 2のreview targetは`f3d0434`で、blocking findingなし。
 - CI hardening: `0fd4411`、`417b724`、`f273767`、`7f04898`で固定xlflow実体、VBA checkout改行、release safety probeの終了コードを修正済み。
 - user-facing samples: `sample/`に注文・設定・APIレスポンスの3プロジェクトを追加し、root README・design・AGENTS treeへ反映済み。
+- tag release: `vMAJOR.MINOR.PATCH` pushでsource-checkを先行し、`VBA-Release-vX.Y.Z.zip`を作成するworkflowを追加中。
 
 ### 2.2 Confirmed evidence
 
@@ -719,6 +720,9 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 - [x] CI status名から検証範囲が分かるようにする。
 - [x] release staging/verification TaskをExcel-free CIへ接続する。
 - [x] CI failureと未実行を区別する。
+- [ ] `source-check.yml`を`workflow_call`対応にし、tag push時の二重実行を避ける。
+- [ ] `vMAJOR.MINOR.PATCH` tag pushを厳密検証するrelease workflowを追加する（prereleaseは対象外）。
+- [ ] `VBA-Release-vX.Y.Z.zip`のroot直下に3モジュールだけを格納し、同一tag再実行でassetを更新できるようにする。
 
 ### Release artifact
 
@@ -734,6 +738,7 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 - [x] 追加のthird-party referenceを導入しないため、`THIRD_PARTY_NOTICES.md`はv1 payloadへ含めない方針を確認する。
 - [x] `CHANGELOG.md`を作成し、versionの正をGit tagとする方針を記録する。
 - [x] DG-008で採用した補助物は3-file import payloadの外側で管理する。
+- [ ] GitHub Releaseへ`VBA-Release-vX.Y.Z.zip`を添付し、3 entry以外がないことをCIで検証する。
 
 ### Compatibility-conscious static audit
 

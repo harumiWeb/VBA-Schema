@@ -1216,7 +1216,7 @@ Else
 End If
 ```
 
-VBE import payloadはproduction 3ファイルだけとし、README、LICENSE、CHANGELOG、sample workbook、ZIPなどは別のrelease/repository assetとして提供する。staged VBA sourceのencodingはUTF-8（BOMなし）、改行コードはLFに固定する。versionの正はGit tagとCHANGELOGとし、VBA sourceへversion定数は追加しない。
+VBE import payloadはproduction 3ファイルだけとし、README、LICENSE、CHANGELOG、sample workbook、ZIPなどは別のrelease/repository assetとして提供する。GitHub Releaseは`vMAJOR.MINOR.PATCH` tag pushを起点にし、`source-check`を先行実行してから、`VBA-Release-vX.Y.Z.zip`の`VBA-Release/`直下へ3ファイルだけを格納する。prerelease tagは現行workflowの対象外とする。staged VBA sourceのencodingはUTF-8（BOMなし）、改行コードはLFに固定する。versionの正はGit tagとCHANGELOGとし、VBA sourceへversion定数は追加しない。
 
 ---
 

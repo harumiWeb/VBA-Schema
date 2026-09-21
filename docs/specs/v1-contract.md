@@ -300,6 +300,16 @@ release artifactにはこの3ファイルだけを含める。`src/modules/Tests
 
 staged VBA sourceはUTF-8（BOMなし）かつLF改行でなければならない。README、LICENSE、CHANGELOG、sample workbook、ZIPなどの補助assetは3-file import payloadとは別に提供し、payloadのcomponent数を増やさない。
 
+GitHub Release workflowは`vMAJOR.MINOR.PATCH`形式のstable tag pushだけを受理する。tag pushでは再利用可能な`source-check` workflowを先に実行し、成功後に`VBA-Release-vX.Y.Z.zip`を生成する。ZIPのroot directoryは`VBA-Release/`とし、次の3 entryだけを含める。
+
+```text
+VBA-Release/Schema.bas
+VBA-Release/VSchema.cls
+VBA-Release/VValidationResult.cls
+```
+
+`-rc.1`などのprerelease tagはv1 workflowの対象外とする。同一tagのworkflow再実行では、既存GitHub Releaseの同名assetをclobberして更新できる。
+
 `tools/release-stage.ps1`のDestinationはrepository内でなければならず、repository root、`src`、`.git`、`.xlflow`、`build`のいずれかと同一・子孫・祖先になるパスは拒否する。拒否判定は既存Destinationの削除より前に行い、production sourceや検証用workbookをrelease stagingの誤指定で削除できないようにする。
 
 release gateは次を満たす必要がある。
