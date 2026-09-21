@@ -59,13 +59,14 @@ code_source = "sidecar"
 # Project-root-relative doublestar globs excluded from `xlflow build`.
 exclude = [
   "src/modules/Tests/**",
+  "src/modules/Benchmarks/**",
   "src/modules/Xlflow/XlflowAssert.bas",
 ]
 
 # Procedure complexity metrics.
 [metrics]
 # Project-root-relative doublestar globs excluded from metric collection.
-exclude = []
+exclude = ["src/modules/Benchmarks/**"]
 
 # A value of zero disables that threshold; positive values are strict upper bounds.
 [metrics.thresholds]
@@ -130,8 +131,9 @@ disabled_rules = []
 # VB020 unused-local-variable warnings are enabled by default.
 # Add "VB020" to disabled_rules if a project intentionally keeps scratch locals.
 #
-# Optional project-wide lint rules. They are disabled by default because
-# they can be noisy in projects with callback-heavy or workbook-driven VBA.
+# Optional project-wide lint rules. They remain disabled after the M7
+# evaluation because the current VBA compatibility/error-handler patterns
+# produce noisy warnings; the standard lint gate must stay finding-free.
 # Uncomment individual rules to enable them.
 # detect_scope_shadowing = true          # VB018
 # detect_unused_private_procedures = true # VB021

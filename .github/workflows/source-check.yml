@@ -1,0 +1,89 @@
+name: source-check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  source-check:
+    name: source-check (Excel-free)
+    # The repository's PowerShell helpers use Windows-relative VBA paths.
+    # This job still does not open Excel; VBE compile is a separate gate.
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned xlflow CLI
+        shell: pwsh
+        run: |
+          $xlflowVersion = "0.32.1"
+          $xlflowCommit = "52e93661cdc830592de88e047cbeed3bb2ac4488"
+          $binPath = Join-Path $env:RUNNER_TEMP "vba-schema-xlflow-bin"
+          New-Item -ItemType Directory -Path $binPath -Force | Out-Null
+
+          $archivePath = Join-Path $env:RUNNER_TEMP "xlflow_windows_x86_64.zip"
+          $downloadUri = "https://github.com/harumiWeb/xlflow/releases/download/v$xlflowVersion/xlflow_windows_x86_64.zip"
+          Invoke-WebRequest -Uri $downloadUri -OutFile $archivePath
+          Expand-Archive -LiteralPath $archivePath -DestinationPath $binPath -Force
+
+          $xlflowPath = Join-Path $binPath "xlflow.exe"
+          if (-not (Test-Path -LiteralPath $xlflowPath -PathType Leaf)) {
+            throw "Pinned xlflow executable was not installed: $xlflowPath"
+          }
+
+          $versionOutput = (& $xlflowPath version --json | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw "Pinned xlflow version check failed with exit code $LASTEXITCODE"
+          }
+          if ($versionOutput -notmatch [regex]::Escape($xlflowCommit)) {
+            throw "Pinned xlflow commit was not resolved. Output: $versionOutput"
+          }
+          Write-Output $versionOutput
+          "VBA_SCHEMA_XLFLOW_BIN=$xlflowPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Lint source
+        shell: pwsh
+        run: |
+          & $env:VBA_SCHEMA_XLFLOW_BIN lint --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Analyze source
+        shell: pwsh
+        run: |
+          & $env:VBA_SCHEMA_XLFLOW_BIN analyze --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check production compatibility hygiene
+        shell: pwsh
+        run: ./tools/check-production-hygiene.ps1
+
+      - name: Check VBA formatting
+        shell: pwsh
+        run: ./tools/check-format.ps1
+
+      - name: Verify user-facing samples
+        shell: pwsh
+        run: ./tools/verify-samples.ps1
+
+      - name: Discover VBA tests
+        shell: pwsh
+        run: |
+          & $env:VBA_SCHEMA_XLFLOW_BIN test list --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Stage release payload
+        shell: pwsh
+        run: ./tools/release-stage.ps1
+
+      - name: Verify release payload
+        shell: pwsh
+        run: ./tools/release-verify.ps1
+
+      - name: Check release staging safety
+        shell: pwsh
+        run: ./tools/test-release-stage-safety.ps1
+
+      - name: Check benchmark environment guard
+        shell: pwsh
+        run: ./tools/test-benchmark-environment.ps1
