@@ -4,3 +4,4 @@
 - `Scripting.Dictionary`の入力判定はTypeName後の限定capability checkに留め、入力側の能力不足をenvironment failureへ変換しない。library自身のIssue生成component不足だけをenvironment errorとして扱う。
 - fresh managed sessionやfresh workbook probeでは`xlflow push --fast`を使わない。共有push-state cacheがsource unchangedと誤判定するため、session所有者が`push --session --no-save`で明示的にimportする。
 - CIで固定CLIを使う場合は、`GITHUB_PATH`の解決順序に依存せず、専用binディレクトリの絶対パスを`GITHUB_ENV`へ出して各stepから直接呼び出す。`go install`はビルドメタデータが`dev/none`になり得るため、検証済みrelease assetを取得して`version --json`で固定commitを検証する。
+- `xlflow fmt`のcheckはVBAソースの改行をLFとして比較する。WindowsのcheckoutでCRLFへ変換されると全ファイルが未整形扱いになるため、`.gitattributes`で`.bas`／`.cls`の`eol=lf`を固定する。
