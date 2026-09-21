@@ -18,18 +18,42 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.26.x
+          cache: false
 
       - name: Install pinned xlflow CLI
         shell: pwsh
         run: |
+          $binPath = Join-Path $env:RUNNER_TEMP "vba-schema-xlflow-bin"
+          New-Item -ItemType Directory -Path $binPath -Force | Out-Null
+          $env:GOBIN = $binPath
           go install github.com/harumiWeb/xlflow/cmd/xlflow@52e93661cdc830592de88e047cbeed3bb2ac4488
-          "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          $xlflowPath = Join-Path $binPath "xlflow.exe"
+          if (-not (Test-Path -LiteralPath $xlflowPath -PathType Leaf)) {
+            throw "Pinned xlflow executable was not installed: $xlflowPath"
+          }
+
+          $versionOutput = (& $xlflowPath version --json | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw "Pinned xlflow version check failed with exit code $LASTEXITCODE"
+          }
+          if ($versionOutput -notmatch "52e93661cdc830592de88e047cbeed3bb2ac4488") {
+            throw "Pinned xlflow commit was not resolved. Output: $versionOutput"
+          }
+          Write-Output $versionOutput
+          "VBA_SCHEMA_XLFLOW_BIN=$xlflowPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Lint source
-        run: xlflow lint --json
+        shell: pwsh
+        run: |
+          & $env:VBA_SCHEMA_XLFLOW_BIN lint --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Analyze source
-        run: xlflow analyze --json
+        shell: pwsh
+        run: |
+          & $env:VBA_SCHEMA_XLFLOW_BIN analyze --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Check production compatibility hygiene
         shell: pwsh
@@ -40,7 +64,10 @@ jobs:
         run: ./tools/check-format.ps1
 
       - name: Discover VBA tests
-        run: xlflow test list --json
+        shell: pwsh
+        run: |
+          & $env:VBA_SCHEMA_XLFLOW_BIN test list --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Stage release payload
         shell: pwsh

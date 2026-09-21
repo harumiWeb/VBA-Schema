@@ -32,10 +32,18 @@ if ($existingPaths.Count -eq 0) {
     exit 0
 }
 
-$xlflowCommand = Get-Command xlflow -CommandType Application -ErrorAction Stop
+$configuredXlflowPath = [Environment]::GetEnvironmentVariable("VBA_SCHEMA_XLFLOW_BIN")
+if ([string]::IsNullOrWhiteSpace($configuredXlflowPath)) {
+    $configuredXlflowPath = (Get-Command xlflow -CommandType Application -ErrorAction Stop).Source
+}
+if (-not (Test-Path -LiteralPath $configuredXlflowPath -PathType Leaf)) {
+    throw "xlflow executable not found: $configuredXlflowPath"
+}
+
+Write-Output "Using xlflow: $configuredXlflowPath"
 Push-Location $repoRoot
 try {
-    & $xlflowCommand.Source fmt --check $existingPaths
+    & $configuredXlflowPath fmt --check $existingPaths
     exit $LASTEXITCODE
 } finally {
     Pop-Location
