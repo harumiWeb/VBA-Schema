@@ -17,6 +17,7 @@ When making changes to the project structure, workers must update the following 
 root: .
 ├── .github/
 │   └── workflows/
+│       ├── release.yml
 │       └── source-check.yml
 ├── dist/
 │   └── VBA-Schema/ (generated, ignored)
@@ -91,6 +92,7 @@ root: .
 │   ├── check-production-hygiene.ps1
 │   ├── run-benchmark.ps1
 │   ├── release-stage.ps1
+│   ├── package-release.ps1
 │   ├── release-smoke.ps1
 │   ├── release-verify.ps1
 │   ├── test-benchmark-environment.ps1

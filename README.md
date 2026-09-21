@@ -18,11 +18,13 @@ Windows 64-bit OfficeでVBE compileとruntime testsを検証しています。ma
 
 ## インストール
 
-1. GitHub releaseの3-file import payload、またはrepositoryの `dist/VBA-Schema` から次の3ファイルを取得します。
+1. GitHub Releaseの `VBA-Release-vX.Y.Z.zip`、またはrepositoryの `dist/VBA-Schema` から次の3ファイルを取得します。Release ZIPは展開後の `VBA-Release/` 直下に同じ3ファイルだけを含みます。
 2. VBEで対象VBA projectを開き、`File > Import File...` から `.bas` と `.cls` を順にimportします。
 3. 追加のreference設定は不要です。
 
 更新時は同じ3ファイルを再importし、古い同名componentを置き換えます。削除時は `Schema` module、`VSchema` class、`VValidationResult` classをVBEから削除します。作業前にprojectのバックアップを作成してください。
+
+GitHub Releaseは `vMAJOR.MINOR.PATCH` 形式のtag pushで作成されます。tag push後に再利用可能な `source-check` workflowを先に実行し、成功した場合だけ `VBA-Release-vX.Y.Z.zip` を作成してReleaseへ添付します。`-rc.1`などのprerelease tagは現行workflowの対象外です。
 
 ## 最小例
 
@@ -88,6 +90,7 @@ rtk task verify
 rtk task samples-verify
 rtk task release-smoke
 rtk task benchmark
+rtk task release-package TAG=v0.0.0
 ```
 
 VBEを使うbehavioral testsとcompile fixtureはxlflowのmanaged Excel sessionで実行します。release payloadは `rtk task release-stage` で生成し、`rtk task release-verify` で3ファイルallowlist、encoding、class headerを検証します。
