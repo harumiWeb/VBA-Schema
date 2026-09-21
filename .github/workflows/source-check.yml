@@ -14,19 +14,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.26.x
-          cache: false
-
       - name: Install pinned xlflow CLI
         shell: pwsh
         run: |
+          $xlflowVersion = "0.32.1"
+          $xlflowCommit = "52e93661cdc830592de88e047cbeed3bb2ac4488"
           $binPath = Join-Path $env:RUNNER_TEMP "vba-schema-xlflow-bin"
           New-Item -ItemType Directory -Path $binPath -Force | Out-Null
-          $env:GOBIN = $binPath
-          go install github.com/harumiWeb/xlflow/cmd/xlflow@52e93661cdc830592de88e047cbeed3bb2ac4488
+
+          $archivePath = Join-Path $env:RUNNER_TEMP "xlflow_windows_x86_64.zip"
+          $downloadUri = "https://github.com/harumiWeb/xlflow/releases/download/v$xlflowVersion/xlflow_windows_x86_64.zip"
+          Invoke-WebRequest -Uri $downloadUri -OutFile $archivePath
+          Expand-Archive -LiteralPath $archivePath -DestinationPath $binPath -Force
 
           $xlflowPath = Join-Path $binPath "xlflow.exe"
           if (-not (Test-Path -LiteralPath $xlflowPath -PathType Leaf)) {
@@ -37,7 +36,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Pinned xlflow version check failed with exit code $LASTEXITCODE"
           }
-          if ($versionOutput -notmatch "52e93661cdc830592de88e047cbeed3bb2ac4488") {
+          if ($versionOutput -notmatch [regex]::Escape($xlflowCommit)) {
             throw "Pinned xlflow commit was not resolved. Output: $versionOutput"
           }
           Write-Output $versionOutput
