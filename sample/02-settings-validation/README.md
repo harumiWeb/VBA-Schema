@@ -1,26 +1,26 @@
-# アプリケーション設定の検証
+# Application settings validation
 
-設定シートやフォームから読み取った値を、利用開始前に検証するサンプルです。
+This sample validates values read from settings sheets or forms before the application starts using them.
 
-## 実行
+## Run
 
-- import: `SampleSettingsValidation.bas`
-- macro: `RunSettingsValidationSample`
+- Import: `SampleSettingsValidation.bas`
+- Macro: `RunSettingsValidationSample`
 
-設定項目が不足している場合、`OptionalField`と`Nullable`で意味を分けられます。
+When a setting is missing, `OptionalField` and `Nullable` express different meanings:
 
-- `OptionalField`: Dictionaryにキーが存在しない場合だけ許可
-- `Nullable`: キーが存在し、値が`Null`の場合を許可
+- `OptionalField`: allows the Dictionary key to be absent.
+- `Nullable`: allows a present key whose value is `Null`.
 
-## 使用しているAPI
+## APIs used
 
-- `ObjectSchema`、`Field`、`Strict`
-- `EnumOf`、`Pattern`
+- `ObjectSchema`, `Field`, `Strict`
+- `EnumOf`, `Pattern`
 - `Number().WholeNumber().Min().Max()`
 - `ArrayOf(Text())`
-- `OptionalField`、`Nullable`
+- `OptionalField`, `Nullable`
 
-失敗例では次のような結果を確認できます。
+The failing input demonstrates results such as:
 
 ```text
 $.environment  invalid_enum

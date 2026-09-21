@@ -1,28 +1,28 @@
-# APIレスポンス相当の検証
+# API response-shaped payload validation
 
-JSONパーサーなどで取得したレスポンスを、VBAの`Dictionary`と`Collection`へ変換した後に検証するサンプルです。JSONの取得・解析機能そのものは含めません。
+This sample validates a response after a JSON parser or another transport layer has converted it into VBA `Dictionary` and `Collection` values. It does not include JSON retrieval or parsing.
 
-## 実行
+## Run
 
-- import: `SampleApiPayload.bas`
-- macro: `RunApiPayloadSample`
+- Import: `SampleApiPayload.bas`
+- Macro: `RunApiPayloadSample`
 
-## 使用しているAPI
+## APIs used
 
-- nested `ObjectSchema`
+- Nested `ObjectSchema`
 - `ArrayOf(Collection)`
-- `UnionOf`（メールアドレスまたは数値ID）
-- `Literal`、`Nullable`、`OptionalField`
-- `Number().WholeNumber().Min()`、`Text().Length()`
+- `UnionOf` (an email address or numeric ID)
+- `Literal`, `Nullable`, `OptionalField`
+- `Number().WholeNumber().Min()`, `Text().Length()`
 
-失敗例では、レスポンスのどこが不正かをpath付きで確認できます。
+The failing input shows exactly where the response is invalid:
 
 ```text
-$.status       invalid_literal
-$.contact      invalid_union
-$.items[0].id  too_small
+$.status         invalid_literal
+$.contact        invalid_union
+$.items[0].id    too_small
 $.items[0].active invalid_type
-$.traceId      unknown_field
+$.traceId        unknown_field
 ```
 
-`contact`を整数へ変更すると、同じUnionの2番目のbranchが成功する挙動も試せます。
+Changing `contact` to an integer also demonstrates the second branch of the same Union succeeding.

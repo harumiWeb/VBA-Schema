@@ -1,4 +1,4 @@
-# ADR-0002: VBA予約語を避けたAPIと失敗境界
+# ADR-0002: VBA-safe API names and the error boundary
 
 ## Status
 
@@ -6,34 +6,34 @@
 
 ## Background
 
-当初のZod風APIには`Any`、`String`、`Boolean`、`Date`、`Object`、`Optional`、`Integer`など、VBAの予約語または型名と衝突する名前が含まれていた。Windows 64-bit OfficeのVBE compile oracleでは、少なくとも`Any`、`Optional`、`Integer`をprocedure名にした宣言がコンパイルに失敗した。
+The original Zod-like API included names such as `Any`, `String`, `Boolean`, `Date`, `Object`, `Optional`, and `Integer`, which collide with VBA reserved words or type names. The Windows 64-bit Office VBE compile oracle showed that at least declarations using `Any`, `Optional`, and `Integer` as procedure names fail to compile.
 
-また、`SafeParse`がすべてのruntime errorをvalidation failureへ変換すると、入力不正、schema構築ミス、runtime component不足、library bugを利用者が区別できなくなる。
+If `SafeParse` converted every runtime error into a validation failure, users could not distinguish invalid input, schema construction mistakes, missing runtime components, and library bugs.
 
 ## Decision
 
-- v1のfactory名は`AnyValue`、`Text`、`Number`、`Bool`、`DateTime`、`ObjectSchema`、`ArrayOf`、`Literal`、`EnumOf`、`UnionOf`とする。
-- v1のmodifier名は`OptionalField`、`Nullable`、`Min`、`Max`、`Length`、`WholeNumber`、`Pattern`、`Email`、`Field`、`Strict`とする。
-- objectを含むUnion入力はVariant配列ではなく、`VSchema`を含む`Collection`へ限定する。
-- Public APIの追加・変更は、全signatureとfluent chainを含むfixtureをVBEでcompileしてから採用する。
-- `SafeParse`がResultへ変換するのはvalidation failureだけとする。
-- schema構築のprogrammer misuseとruntime/environment failureは、それぞれ区別可能なErr番号範囲で投げる。
-- `InternalInitialize`はVBAのclass初期化制約のためPublicで残すが、unsupported internal-only APIとする。Schema factoryだけが内部encoded kindを渡せ、通常の直接呼び出し、不正kind、再初期化はprogrammer misuseとして拒否する。
-- VBAのPrivate member可視性制約を越えてchild schemaを合成・検証・循環検査する`Internal*` hookもPublicで残すが、`InternalInitialize`と同じunsupported internal-only APIとし、安定したuser-facing compatibility guaranteeの対象外とする。詳細なObject境界はADR-0003で定める。
-- Numberの比較は型対応のlossless wideningとround-trip確認を優先し、precision loss・overflow・NaN・Infinityを黙って丸めない。ErrorTextと`received`は固定文法で生成し、constraint評価順も固定する。
-- 暗黙の型変換を行わず、Literal/Enumを含む型比較は`docs/specs/v1-contract.md`のcategory規則に従う。
+- Use `AnyValue`, `Text`, `Number`, `Bool`, `DateTime`, `ObjectSchema`, `ArrayOf`, `Literal`, `EnumOf`, and `UnionOf` as v1 factory names.
+- Use `OptionalField`, `Nullable`, `Min`, `Max`, `Length`, `WholeNumber`, `Pattern`, `Email`, `Field`, and `Strict` as v1 modifier names.
+- Restrict Union inputs containing Objects to a `Collection` of `VSchema` instances rather than a Variant array.
+- Adopt a public API addition or change only after a fixture containing every signature and fluent chain passes VBE compilation.
+- Convert only validation failures into a Result through `SafeParse`.
+- Raise schema-construction programmer misuse and runtime/environment failures in distinct, recognizable Err number ranges.
+- Keep `InternalInitialize` Public because of VBA class initialization constraints, but classify it as an unsupported internal-only API. Only Schema factories may pass the internal encoded kind; ordinary direct calls, invalid kinds, and reinitialization are programmer misuse.
+- Keep the `Internal*` hooks needed to compose, validate, and cycle-check child schemas Public because of VBA Private-member visibility constraints. Classify them like `InternalInitialize` as unsupported internal-only APIs outside the stable user-facing compatibility guarantee. ADR-0003 defines the detailed Object boundary.
+- Separate Number type acceptance from comparison. Accept finite Byte, Integer, Long, Single, Double, and Currency values as Number even when they cannot be converted to Decimal. Use subtype-aware lossless widening, Currency comparison, and necessary round-trip checks only for `Min`/`Max` and `WholeNumber`; never silently round precision loss, overflow, NaN, or Infinity. Generate `ErrorText` and `received` with fixed grammar and keep constraint order fixed.
+- Do not perform implicit type conversion. Type comparisons, including Literal and Enum comparisons, follow the category rules in `docs/specs/v1-contract.md`.
 
 ## Consequences
 
-- Zodと同じ短い名前にはならないが、VBAでコンパイル可能なfluent APIを安定して提供できる。
-- `SafeParse`でもenvironment failureやlibrary bugはErrを投げるため、呼び出し側が必要に応じて運用上のerror handlingを行う必要がある。
-- Public API名はbreaking-change surfaceになるため、実装前のcompile fixtureが必須になる。
-- Union定義には`Collection`の準備が必要になるが、object arrayの曖昧なsemanticsを公開契約から排除できる。
+- The names are not as short as their Zod equivalents, but the fluent API remains compilable and stable in VBA.
+- `SafeParse` still raises Err for environment failures and library bugs, so callers must add operational error handling where appropriate.
+- Public API names are a breaking-change surface, making the compile fixture mandatory before implementation.
+- Union definitions require preparing a `Collection`, but this removes ambiguous Object-array semantics from the public contract.
 
 ## Rationale
 
-- Tests: `PublicApiCompile.bas`で全Public signatureとfluent chainをcompileし、M2 focused testsでscalar Result、Issue snapshot、Error boundaryを検証する。2026-09-21にWindows 64-bit OfficeのVBE compileとfocused/full testを実行済み。
-- Code: `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`にscalar coreを実装済み。Object/Array/Literal/Enum/Union/Pattern/Emailは後続milestoneで実装する。
+- Tests: `PublicApiCompile.bas` compiles every Public signature and fluent chain, while M2 focused tests verify scalar Results, Issue snapshots, and the error boundary. `TestNumber.bas` fixes the regression that finite Doubles outside the Decimal range are accepted as Number. Windows 64-bit Office VBE compilation and focused/full tests were run on 2026-09-21.
+- Code: scalar core is implemented in `Schema.bas`, `VSchema.cls`, and `VValidationResult.cls`. Object, Array, Literal, Enum, Union, Pattern, and Email were implemented in later milestones.
 - Related specs: `docs/specs/v1-contract.md`
 
 ## Supersedes

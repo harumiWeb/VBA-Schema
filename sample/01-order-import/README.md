@@ -1,31 +1,31 @@
-# 注文・明細インポート
+# Order and line-item import
 
-Excel表やCSVを`Scripting.Dictionary`と`Collection`へ変換した後、注文データを取り込む前に検証するサンプルです。
+This sample validates order data before import, after an Excel table or CSV has been converted into `Scripting.Dictionary` and `Collection` values.
 
-## 実行
+## Run
 
-- import: `SampleOrderImport.bas`
-- macro: `RunOrderImportSample`
+- Import: `SampleOrderImport.bas`
+- Macro: `RunOrderImportSample`
 
-成功例と失敗例を1件ずつ検証し、Immediate Windowへ`ErrorText`を出力します。
+The sample validates one successful and one failing input and prints `ErrorText` to the Immediate Window.
 
-## 使用しているAPI
+## APIs used
 
-- `ObjectSchema`、`Field`、`Strict`
-- nested `ObjectSchema`と`ArrayOf(Collection)`
-- `Text().Pattern()`、`Text().Email()`、`DateTime()`
+- `ObjectSchema`, `Field`, `Strict`
+- Nested `ObjectSchema` and `ArrayOf(Collection)`
+- `Text().Pattern()`, `Text().Email()`, `DateTime()`
 - `EnumOf`
 - `Number().WholeNumber().Min().Max()`
 - `OptionalField`
 
-失敗例では、例えば次のpath/codeが確認できます。
+The failing input demonstrates paths and error codes such as:
 
 ```text
-$.orderId       invalid_pattern
-$.email         invalid_email
-$.items[0].sku  invalid_pattern
-$.items[0].quantity  too_small
-$.debug         unknown_field
+$.orderId           invalid_pattern
+$.email             invalid_email
+$.items[0].sku      invalid_pattern
+$.items[0].quantity too_small
+$.debug             unknown_field
 ```
 
-`Strict`を外すと未知フィールドをpassthroughできるため、移行時の挙動差も確認できます。
+Removing `Strict` also lets you observe the migration behavior when unknown fields are passed through.

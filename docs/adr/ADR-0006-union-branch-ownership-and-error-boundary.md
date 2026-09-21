@@ -6,33 +6,33 @@
 
 ## Background
 
-`UnionOf` は複数の `VSchema` を一つの schema node として扱う公開 API である。VBA の `Collection` は可変であり、入力 Collection をそのまま保持すると、schema 構築後の外部 mutation が validation の意味を変更する。一方、child `VSchema` は既存の Object/Array と同じ mutable builder 契約を持つため、deep clone を導入すると共有・cycle 検出・builder の一貫性が崩れる。
+`UnionOf` is a public API that treats multiple `VSchema` instances as one schema node. A VBA `Collection` is mutable; retaining the input Collection directly would allow external mutation after schema construction to change validation meaning. Child `VSchema` instances follow the same mutable-builder contract as existing Object and Array schemas, so introducing deep cloning would break shared references, cycle detection, and builder consistency.
 
-また、branchごとの失敗詳細をそのまま公開すると、branch数や内部構造に依存して Issue 契約が不安定になる。branch内部の programmer misuse や runtime failure を通常の validation failure と区別しない場合、利用者の schema 定義ミスや実行環境欠落を隠してしまう。
+If branch-specific failure details were exposed directly, the Issue contract would depend on branch count and internal structure. Failing to distinguish programmer misuse or runtime failure inside a branch from ordinary validation failure would hide schema-definition errors or missing environment components.
 
 ## Decision
 
-- `UnionOf(ByVal Schemas As Collection)` は、構築時に非空 Collection の branch順と要素集合を snapshot する。
-- snapshot の要素は `VSchema` の参照として保持し、child schema自体はcloneしない。したがって、構築後の child builder変更は Union の validation に反映される。
-- `Nothing`、空 Collection、`VSchema` 以外の要素、未初期化 `VSchema` は programmer misuse として `vbObjectError + 2100` を送出する。
-- validation は branch順に実行し、最初に成功した branch で成功する。nested Union は flatten せず、schema graph の構造を保持して再帰的に検証する。
-- 全branchが validation failure の場合、branch内部の Issue は外部結果へ持ち出さず、元の失敗 path に一件の `invalid_union` Issue（expected=`Union`）を追加する。
-- branch内部で発生した programmer misuse、runtime/environment failure、internal invariant failure は `invalid_union` に変換せず、そのまま送出する。
+- `UnionOf(ByVal Schemas As Collection)` snapshots the branch order and element set of a non-empty Collection during construction.
+- Store snapshot elements as `VSchema` references without cloning child schemas. Changes made through a child builder after construction therefore affect Union validation.
+- Treat `Nothing`, an empty Collection, non-`VSchema` elements, and uninitialized `VSchema` instances as programmer misuse and raise `vbObjectError + 2100`.
+- Validate in branch order and succeed on the first successful branch. Do not flatten nested Unions; preserve the schema-graph structure for recursive validation.
+- When every branch produces a validation failure, do not expose branch Issues. Add one `invalid_union` Issue (`expected=Union`) at the original failed path.
+- Do not convert programmer misuse, runtime/environment failures, or internal invariant failures inside a branch into `invalid_union`; propagate them unchanged.
 
 ## Consequences
 
-- Union に渡した Collection の後続 `Add`/`Remove` は既存 schema に影響しない。
-- child `VSchema` の fluent builder は既存の共有参照契約どおり影響するため、childを共有した後の mutation は利用者が管理する必要がある。
-- validation failure の Issue 数と形は branch 数に依存せず安定する。一方、branchごとの診断詳細は v1 の公開結果には含まれない。
-- nested Union の再帰は schema graph preflight の対象となるため、cycle は `vbObjectError + 2103` として検出される。
-- branchが利用する Dictionary/RegExp などの環境依存 component が欠落した場合、Union は環境エラーを隠さない。
+- Later `Add` or `Remove` operations on the Collection passed to Union do not affect the existing schema.
+- Child fluent builders follow the existing shared-reference contract, so users must manage mutations made after sharing a child schema.
+- The number and shape of validation Issues remain stable regardless of branch count; branch-specific diagnostics are not part of the v1 public result.
+- Nested Union recursion is covered by schema-graph preflight, so cycles are detected as `vbObjectError + 2103`.
+- If a branch lacks an environment-dependent component such as Dictionary or RegExp, Union does not hide the environment error.
 
 ## Rationale
 
-- Tests: `src/modules/Tests/TestUnion.bas` は branch順、後続branch成功、単一 `invalid_union`、Collection snapshot、child参照共有、nested Union、special value、branch programmer error を検証する。
-- Tests: `src/modules/Tests/TestErrors.bas` は空/Nothing/non-VSchema/未初期化 branch の `vbObjectError + 2100` を検証する。
-- Code: `src/classes/VSchema.cls` の `InternalSetUnion`、`ValidateUnion`、`VisitSchemaGraph` がこの境界を実装する。
-- Related specs: `docs/specs/v1-contract.md`、`docs/design.md`。
+- Tests: `src/modules/Tests/TestUnion.bas` verifies branch order, later-branch success, a single `invalid_union`, Collection snapshots, shared child references, nested Unions, special values, and branch programmer errors.
+- Tests: `src/modules/Tests/TestErrors.bas` verifies `vbObjectError + 2100) for empty, Nothing, non-VSchema, and uninitialized branches.
+- Code: `InternalSetUnion`, `ValidateUnion`, and `VisitSchemaGraph` in `src/classes/VSchema.cls` implement this boundary.
+- Related specs: `docs/specs/v1-contract.md`, `docs/design.md`.
 
 ## Supersedes
 

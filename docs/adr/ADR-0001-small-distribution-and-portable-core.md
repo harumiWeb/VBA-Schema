@@ -1,4 +1,4 @@
-# ADR-0001: 3モジュール配布と移植可能なコア
+# ADR-0001: Three-file distribution and a portable core
 
 ## Status
 
@@ -6,35 +6,35 @@
 
 ## Background
 
-VBA-Schemaは、既存のVBAプロジェクトへ容易に持ち込めるランタイムバリデーションライブラリを目指す。導入時のファイル数と参照設定は利用障壁になる一方、VBAには一般的なパッケージ境界や内部可視性がなく、過度なクラス分割は配布と更新を難しくする。
+VBA-Schema is intended to be a runtime validation library that can be brought into an existing VBA project easily. The number of files and reference settings create adoption barriers, while VBA lacks conventional package boundaries and internal visibility. Excessive class decomposition would make distribution and updates harder.
 
-開発と検証はWindows 64-bit Officeで行う。macOS OfficeとWindows 32-bit Officeは手元に検証環境がないため、互換性を意識した実装はできても、現時点で動作保証はできない。
+Development and verification are performed on Windows 64-bit Office. macOS Office and Windows 32-bit Office are not currently available for verification, so the implementation may remain compatibility-conscious without claiming operational support.
 
 ## Decision
 
-- 配布対象のproduction componentは`Schema.bas`、`VSchema.cls`、`VValidationResult.cls`の3ファイルに限定する。
-- `dist/VBA-Schema/`は上記3ファイルから生成するimport payloadであり、sourceと分離したcommit対象外のstaging生成物とする。
-- テスト、xlflow実行基盤、サンプル、生成補助コードは配布対象に含めない。
-- 外部参照設定を要求せず、利用可能な実行時コンポーネントはlate bindingする。
-- Issueの公開表現は`Scripting.Dictionary`をv1の必須concrete typeとして固定する。portable fallbackはv1へ導入せず、component unavailable時はenvironment failureとして扱う。
-- Windows API、Win32固有の型宣言、Excel Object Modelへのコア依存を追加しない。
-- 検証済みのサポート対象はWindows 64-bit Officeとする。
-- macOS OfficeとWindows 32-bit Officeは「互換性を意識するが未検証」と表示し、サポート済みとは表示しない。
-- 未検証環境の互換性のために、検証済み環境のエラー契約や型安全性を弱めない。
-- `Scripting.Dictionary`および`VBScript.RegExp`は参照設定不要でも実行時機能であるため、「依存なし」ではなく「外部参照設定不要」と表現する。
+- Limit the production components in the distribution to `Schema.bas`, `VSchema.cls`, and `VValidationResult.cls`.
+- Treat `dist/VBA-Schema/` as an import payload generated from those three files. It is a staging artifact separated from source and excluded from commits.
+- Do not include tests, the xlflow execution infrastructure, samples, or generation helpers in the distribution.
+- Do not require external reference settings; use late binding for runtime components where necessary.
+- Fix `Scripting.Dictionary` as the required concrete type for the v1 public Issue representation. Do not introduce a portable fallback in v1; report an unavailable component as an environment failure.
+- Do not add dependencies on the Windows API, Win32-specific declarations, or the Excel Object Model to the core.
+- Treat Windows 64-bit Office as the verified support target.
+- Describe macOS Office and Windows 32-bit Office as compatibility-conscious but unverified; do not describe them as supported.
+- Do not weaken the verified environment's error contract or type safety to accommodate unverified environments.
+- Describe `Scripting.Dictionary` and `VBScript.RegExp` as runtime facilities that need no reference setting, not as having no dependencies.
 
 ## Consequences
 
-- 導入、削除、更新が3ファイルの操作で完結する。
-- `VSchema.cls`へ責務が集中するため、private procedureと明確な内部領域による分割が必要になる。
-- 専用Issue classやschema subtypeを追加できず、内部表現の型安全性には限界がある。
-- macOSまたは32-bit Officeでの不具合報告は互換性改善の対象にはなるが、再現環境を得るまでは修正完了や対応済みを保証できない。
-- late-bound runtime componentが存在しない場合は、validation failureとして隠さず、実行環境エラーとして扱う。
+- Installation, removal, and updates consist of operations on three files.
+- Responsibilities are concentrated in `VSchema.cls`, so the class needs clear private procedures and internal regions.
+- Dedicated Issue classes and schema subtypes cannot be added, which limits type safety in internal representations.
+- Reports from macOS or 32-bit Office can inform compatibility improvements, but no fix can be declared complete or supported until a reproduction environment is available.
+- Missing late-bound runtime components are reported as environment errors instead of being hidden as validation failures.
 
 ## Rationale
 
-- Tests: `docs/specs/v1-contract.md`に配布smoke testとcompatibility gateを定義し、`tools/release-smoke.ps1`でfresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件を検証する。
-- Code: production sourceは`src/modules/Schema.bas`、`src/classes/VSchema.cls`、`src/classes/VValidationResult.cls`に配置し、`dist/VBA-Schema/`はallowlistから生成するcommit対象外payloadとする。
+- Tests: `docs/specs/v1-contract.md` defines the distribution smoke test and compatibility gate. `tools/release-smoke.ps1` verifies three-file import into a fresh workbook, VBE compilation, scalar smoke behavior, and three non-document components.
+- Code: production source is located in `src/modules/Schema.bas`, `src/classes/VSchema.cls`, and `src/classes/VValidationResult.cls`; `dist/VBA-Schema/` is a non-committed payload generated from the allowlist.
 - Related specs: `docs/specs/v1-contract.md`
 
 ## Supersedes

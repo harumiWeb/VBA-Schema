@@ -2,7 +2,7 @@
 
 ## Status
 
-再現済み。VBA-Schema側では既存のxlflow helperをformatter対象から除外して回避する。
+Reproduced. The VBA-Schema repository works around it by excluding the existing xlflow helper from the formatter target.
 
 ## Environment
 
@@ -13,46 +13,42 @@
 
 ## Reproduction
 
-1. formatter適用前に次を実行する。
+1. Run this before applying the formatter.
 
    ```powershell
    rtk xlflow lint --json
    ```
 
-   結果はsuccess。
+   The result is success.
 
-2. 次を実行する。
+2. Run:
 
    ```powershell
    rtk xlflow fmt --write
    ```
 
-   `src/modules`、`src/workbook`、testsの10ファイルが整形される。
+   Ten files under `src/modules`, `src/workbook`, and tests are formatted.
 
-3. 同じlintを再実行する。
+3. Run the same lint command again.
 
-   ```powershell
-   rtk xlflow lint --json
-   ```
-
-   `src/modules/Xlflow/XlflowAssert.bas:1`で次の1件が発生する。
+   One finding appears at `src/modules/Xlflow/XlflowAssert.bas:1`:
 
    ```text
    VB014 parser recovery detected; inspect the reported source context before pushing to Excel.
    ```
 
-`rtk git diff --ignore-all-space -- src/modules/Xlflow/XlflowAssert.bas`では意味のある差分がなく、formatter-onlyの空白・改行変更後に再現する。整形前のsourceへ戻すとlintはsuccessへ戻る。
+   `rtk git diff --ignore-all-space -- src/modules/Xlflow/XlflowAssert.bas` shows no meaningful difference; the issue is reproduced after formatter-only whitespace and line-ending changes. Restoring the source before formatting makes lint pass again.
 
 ## Impact
 
-既存のxlflow helperを一括formatter対象にすると、source lintが失敗し、VBA-Schema固有のproduction作業と無関係なparser recoveryが発生する。
+Including existing xlflow helpers in the bulk formatter target causes source lint to fail and produces parser recovery unrelated to VBA-Schema production work.
 
 ## Workaround in this repository
 
-`tools/check-format.ps1`は`Schema.bas`、`VSchema.cls`、`VValidationResult.cls`、focused testだけを対象にする。既存の`src/modules/Xlflow`、scaffold workbook modulesはformatter gateへ含めない。新しいVBA-Schema sourceで同じ問題が再現した場合は、この回避策で隠さず別issueとして切り出す。
+`tools/check-format.ps1` targets only `Schema.bas`, `VSchema.cls`, `VValidationResult.cls`, and focused tests. Existing `src/modules/Xlflow` and scaffold workbook modules are excluded from the formatter gate. If the same issue occurs in new VBA-Schema source, report it as a separate issue instead of hiding it behind this workaround.
 
 ## Evidence
 
-- `rtk xlflow analyze --json`はformatter前後ともsuccess。
-- `rtk xlflow test list --json`はformatter前後ともscaffold 5件を検出。
-- 環境: `C:\temp\vba-schema-new-probe-20260921`でworkbook bootstrapを検証。
+- `rtk xlflow analyze --json` succeeds both before and after formatting.
+- `rtk xlflow test list --json` discovers the same five scaffold tests before and after formatting.
+- Environment: workbook bootstrap was verified at `C:\temp\vba-schema-new-probe-20260921`.
