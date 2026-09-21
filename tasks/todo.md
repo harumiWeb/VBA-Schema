@@ -906,8 +906,11 @@ rtk xlflow test --session --no-save --json
   - `rtk powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-samples.ps1`: 3 files format unchanged、isolated lint/analyze pass。
   - 一時source project `C:\temp\vba-schema-samples-compile-20260921`で`xlflow lint --json`、`xlflow analyze --json`、`xlflow push --session --no-save --json`がpass。
   - Windows 64-bit managed sessionで`SampleOrderImport.RunOrderImportSample`、`SampleSettingsValidation.RunSettingsValidationSample`、`SampleApiPayload.RunApiPayloadSample`をdiagnostic/headless実行し、全てsuccess。sessionは`--discard`で停止し未保存変更を破棄。
+  - `rtk task verify`、`rtk task release-stage`、`rtk task release-verify`、`rtk actionlint`: pass。
+  - GitHub Actions `source-check` run `35591126522`: success（sample verificationを含む全step pass）。Node.js 20 deprecation annotationはworkflow failureではない。
 - Unverified: macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable環境でのsample実行。
-- Next task: sample変更をcommitし、source-checkでsample verificationを含むCI結果を確認する。
+- Implementation commit: `68025fa feat: add user-facing VBA-Schema samples`。`review-vba-schema-design`へpush済み。
+- Next task: macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable環境の実機提供時に別gateで確認する。
 
 ### 2026-09-21 — M8 independent review / Pass 1 remediation
 
