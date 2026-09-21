@@ -67,57 +67,13 @@ docs/specs/v1-contract.md
 ### 2.1 Repository state
 
 - Branch: `review-vba-schema-design`
-- Baseline HEAD: `ef9369a docs: establish VBA-Schema v1 design roadmap`
+- Baseline HEAD: `8dd8050 docs: record independent review remediation`
 - production implementation: scalar core（AnyValue/Text/Number/Bool/DateTime、共通modifier、Result）、Object（Field／Strict／nested path／cycle preflight）、Array/Collection（一次元配列、logical index、length constraints）、Literal/Enum/Pattern/Email、Unionを実装済み
 - production files: `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`が存在
 - 現在のtest: focused test 55件 + xlflow scaffold 5件 + compile-only fixture（test discovery対象外）。実行結果は59 pass、1 intentional TODO
 - xlflow configured workbook: `build/Book.xlsm`
 - xlflow session: inactive
-- 現在の設計変更は未コミット
-
-現在の未コミット対象:
-
-```text
-.github/workflows/source-check.yml
-AGENTS.md
-.gitignore
-Taskfile.yml
-docs/design.md
-docs/specs/v1-contract.md
-docs/adr/ADR-0001-small-distribution-and-portable-core.md
-docs/adr/ADR-0002-vba-safe-api-and-error-boundary.md
-docs/adr/ADR-0003-object-dictionary-and-schema-cycle-boundary.md
-docs/adr/ADR-0004-array-collection-sequence-boundary.md
-docs/adr/ADR-0005-literal-enum-pattern-email-boundary.md
-docs/adr/ADR-0006-union-branch-ownership-and-error-boundary.md
-docs/adr/ADR-0007-release-and-ci-boundary.md
-CHANGELOG.md
-README.md
-src/classes/VSchema.cls
-src/classes/VValidationResult.cls
-src/modules/Schema.bas
-src/modules/Tests/PublicApiCompile.bas
-src/modules/Tests/TestArray.bas
-src/modules/Tests/TestLiteral.bas
-src/modules/Tests/TestPattern.bas
-src/modules/Tests/TestUnion.bas
-tasks/todo.md
-tools/check-format.ps1
-tools/provision-workbook.ps1
-tools/release-stage.ps1
-tools/release-verify.ps1
-tools/release-smoke.ps1
-src/modules/Tests/TestAnyValue.bas
-src/modules/Tests/TestBool.bas
-src/modules/Tests/TestDateTime.bas
-src/modules/Tests/TestErrors.bas
-src/modules/Tests/TestNullable.bas
-src/modules/Tests/TestNumber.bas
-src/modules/Tests/TestResult.bas
-src/modules/Tests/TestText.bas
-src/modules/Tests/TestObject.bas
-docs/xlflow-issues/20260921-fmt-parser-recovery.md
-```
+- M7、MITライセンス、M8レビュー指摘（release staging安全性・benchmark環境ゲート）の変更はコミット済みで、次の独立Pass 2レビュー対象は`8dd8050`である。
 
 ### 2.2 Confirmed evidence
 
@@ -896,9 +852,33 @@ rtk xlflow test --session --no-save --json
 
 新しい記録を上へ追加する。
 
+### 2026-09-21 — M8 independent review / Pass 1 remediation
+
+- Status: `orca-supervised-final-review`の独立worktreeレビューを完了。workerは`worker_done`を送信したが、受信通知が一度配送されず、`worker-read`でtranscriptを再取得して報告を確認した。レビューworktreeは報告を保存して解放済み。
+- Confirmed findings:
+  - P1: `tools/release-stage.ps1`の任意Destinationが`src`等のproduction sourceと重なる場合に削除できる。repository root、`src`、`.git`、`.xlflow`、`build`との同一・子孫・祖先重複を削除前に拒否するよう修正。
+  - P2: `tools/run-benchmark.ps1`がx86結果をx64 baselineと比較し得る。`office_bitness`を検査し、非x64はunsupported reportを保存してbaseline比較・更新をスキップする環境ゲートを追加。
+  - P3: 本書のCurrent CheckpointとM7最新記録に残っていた未コミット表記を更新。
+- Unsupported observations: review worktreeのun-pinned xlflowによるfmt-check失敗、review worktreeでのExcel/VBE未実行は実装欠陥とは確定せず、環境差異・未検証として分離した。
+- Changed: `release-stage.ps1`の保護パス判定、benchmark environment helperとfocused regression、Task/Excel-free CI接続、ADR-0007/0008、benchmark/v1 contract、design、README、AGENTSを更新。
+- Validation:
+  - `rtk task verify`: pass（60 tests discovered、release staging safety、benchmark environment guard、lint/analyze/format/quality pass）。
+  - `rtk task release-stage` / `rtk task release-verify`: pass。
+  - `rtk task release-smoke`: pass（fresh workbook import、VBE compile、scalar smoke、3 non-document components）。
+  - `rtk task benchmark`: pass（Windows x64、absolute targets、baseline comparison pass）。Report: `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\artifacts\benchmarks\20260921-181627326-windows-x64.json`。
+  - managed sessionで`rtk xlflow test --session --no-save --json`: 59 pass、1 intentional TODO。`rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass。
+  - `rtk xlflow status --json`: session inactive、dirty=false、recovery_required=false。
+- Commit: `3593e01 fix: harden release and benchmark gates`。M7/MITの既存commitは`57e82c6`、`8ec96e7`。
+- Temporary workspaces / artifacts:
+  - `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\build\Book.xlsm`（managed session終了時に未保存変更を破棄）。
+  - `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\artifacts\benchmarks\20260921-181627326-windows-x64.json`（ignored report）。
+  - 独立review worktree `C:\Users\HARUMI\orca\workspaces\VBA-Schema\final-review-agent`（報告取得後に削除）。
+- Unverified: GitHub-hosted workflow実行、Windows self-hosted automation、macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable実機再現。
+- Next task: この修正を含むclean treeへ独立Pass 2 reviewを実行し、blocking findingがないことを確認する。
+
 ### 2026-09-21 — M7 hardening and runtime performance
 
-- Status: M7のproduction hardening、runtime benchmark、release/CI boundary接続を実装し、Windows 64-bit Excelで回帰・性能・release smokeを検証した。変更は未コミット。GitHub上のworkflow実行、macOS、Windows 32-bit Excelは未検証。
+- Status: M7のproduction hardening、runtime benchmark、release/CI boundary接続を実装し、Windows 64-bit Excelで回帰・性能・release smokeを検証した。M7/MIT変更は`57e82c6`、`8ec96e7`としてコミット済み。GitHub上のworkflow実行、macOS、Windows 32-bit Excelは未検証。
 - Decision:
   - Object validationは入力Dictionaryのkeysを一度だけ列挙し、binary `keyIndex`、invalid key、unknown keyを同時に構築する。fieldごとのkeys再列挙を廃止し、大規模objectのlookupをO(fields × input keys)からO(fields + input keys)へ改善する。
   - `Min`/`Max`のText/Array/Number実装はprivate boundary helperへ集約し、既存のduplicate・ordering・error code契約を維持する。
