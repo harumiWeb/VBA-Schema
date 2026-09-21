@@ -75,12 +75,15 @@ root: .
 │       ├── Sheet1.bas
 │       └── ThisWorkbook.bas
 ├── tools/
+│   ├── benchmark-environment.ps1
 │   ├── check-format.ps1
 │   ├── check-production-hygiene.ps1
 │   ├── run-benchmark.ps1
 │   ├── release-stage.ps1
 │   ├── release-smoke.ps1
 │   ├── release-verify.ps1
+│   ├── test-benchmark-environment.ps1
+│   ├── test-release-stage-safety.ps1
 │   └── provision-workbook.ps1
 ├── tasks/
 │   ├── lessons.md

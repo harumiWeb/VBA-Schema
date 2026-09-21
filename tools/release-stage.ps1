@@ -17,6 +17,28 @@ $repoPrefix = $repoRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [Sys
 if (-not $destinationPath.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Release staging destination must be inside the repository: $destinationPath"
 }
+if ($destinationPath.Equals($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Release staging destination must not overlap the repository root: $destinationPath"
+}
+
+$destinationPrefix = $destinationPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+$protectedRoots = @(
+    (Join-Path $repoRoot "src"),
+    (Join-Path $repoRoot ".git"),
+    (Join-Path $repoRoot ".xlflow"),
+    (Join-Path $repoRoot "build")
+)
+foreach ($protectedRootCandidate in $protectedRoots) {
+    $protectedRoot = [System.IO.Path]::GetFullPath($protectedRootCandidate)
+    $protectedPrefix = $protectedRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $destinationOverlapsProtectedRoot =
+        $destinationPath.Equals($protectedRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $destinationPath.StartsWith($protectedPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $protectedRoot.StartsWith($destinationPrefix, [System.StringComparison]::OrdinalIgnoreCase)
+    if ($destinationOverlapsProtectedRoot) {
+        throw "Release staging destination must not overlap protected repository path: $destinationPath"
+    }
+}
 
 $sourceFiles = @(
     "src\modules\Schema.bas",

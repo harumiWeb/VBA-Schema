@@ -51,6 +51,8 @@ tasks:
       - quality-audit
       - fmt-check
       - test-list
+      - release-safety-test
+      - benchmark-environment-test
 
   verify:
     desc: Run the currently available Excel-free verification checks
@@ -67,6 +69,11 @@ tasks:
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-verify.ps1
 
+  release-safety-test:
+    desc: Verify release staging rejects protected repository paths
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-release-stage-safety.ps1
+
   release-smoke:
     desc: Import the three-file payload into a fresh workbook and run scalar smoke checks
     cmds:
@@ -78,3 +85,8 @@ tasks:
     desc: Run runtime validation benchmarks in a dedicated managed Excel session
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-benchmark.ps1
+
+  benchmark-environment-test:
+    desc: Verify benchmark environment gating and report naming
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-benchmark-environment.ps1

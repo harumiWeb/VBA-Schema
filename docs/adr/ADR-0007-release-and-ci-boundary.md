@@ -16,6 +16,7 @@ VBA-Schemaは利用者がVBEへimportするproduction sourceを3ファイルに�
 - README、LICENSE、CHANGELOG、sample workbook、ZIPなどの補助物は3-file payloadとは別のrepositoryまたはrelease assetとして提供する。同一payloadへ同梱する変更は、先にv1 contractとADR-0001を更新する。
 - versionの正はGit tagとtracked `CHANGELOG.md`とする。production VBA sourceへversion定数や別のVERSIONファイルは追加しない。
 - staged VBA sourceはUTF-8（BOMなし）、LF改行として検証する。release stagingは明示allowlistを使い、追加のreference設定なしにcompileできるfresh workbook smokeを通す。
+- `tools/release-stage.ps1`は、Destinationがrepository root、production source tree（`src`）、xlflow管理領域（`.git`、`.xlflow`）、または検証用workbook（`build`）と重なる場合、削除処理より前に失敗させる。任意のrepository内パスを受け付ける場合でも、保護対象の子孫・祖先との重複を許可しない。
 - GitHub-hosted CIはExcel不要の`lint`、`analyze`、format check、test discoveryを実行する。Windows Excel/VBE compileとbehavioral testsは別のlocal/self-hosted checkとして扱い、status名にも`vbe`または`excel`を含めて検証範囲を明示する。
 - Excelなしのstatic CIをVBE compile passedとは表示しない。macOS/Windows 32-bit用matrixは実機検証を取得した時点で別jobとして追加する。
 

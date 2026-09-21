@@ -300,6 +300,8 @@ release artifactにはこの3ファイルだけを含める。`src/modules/Tests
 
 staged VBA sourceはUTF-8（BOMなし）かつLF改行でなければならない。README、LICENSE、CHANGELOG、sample workbook、ZIPなどの補助assetは3-file import payloadとは別に提供し、payloadのcomponent数を増やさない。
 
+`tools/release-stage.ps1`のDestinationはrepository内でなければならず、repository root、`src`、`.git`、`.xlflow`、`build`のいずれかと同一・子孫・祖先になるパスは拒否する。拒否判定は既存Destinationの削除より前に行い、production sourceや検証用workbookをrelease stagingの誤指定で削除できないようにする。
+
 release gateは次を満たす必要がある。
 
 1. 3ファイルだけを空のmacro-enabled workbookへimportできる

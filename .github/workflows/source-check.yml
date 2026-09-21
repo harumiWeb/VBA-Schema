@@ -49,3 +49,11 @@ jobs:
       - name: Verify release payload
         shell: pwsh
         run: ./tools/release-verify.ps1
+
+      - name: Check release staging safety
+        shell: pwsh
+        run: ./tools/test-release-stage-safety.ps1
+
+      - name: Check benchmark environment guard
+        shell: pwsh
+        run: ./tools/test-benchmark-environment.ps1

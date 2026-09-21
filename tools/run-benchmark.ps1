@@ -8,6 +8,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "benchmark-environment.ps1")
+
 $repoRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $outputDirectoryPath = if ([System.IO.Path]::IsPathRooted($OutputDirectory)) {
     [System.IO.Path]::GetFullPath($OutputDirectory)
@@ -231,7 +233,16 @@ try {
         }
     }
 
-    $baselineComparison = Compare-BenchmarkBaseline $benchmark $fixtures $baselinePath -AllowContractChange:$UpdateBaseline
+    $environmentDecision = Get-BenchmarkEnvironmentDecision ([string]$benchmark.office_bitness)
+    if ($environmentDecision.status -eq "pass") {
+        $baselineComparison = Compare-BenchmarkBaseline $benchmark $fixtures $baselinePath -AllowContractChange:$UpdateBaseline
+    } else {
+        $baselineComparison = [ordered]@{
+            status = "not_run"
+            path = $baselinePath
+            regressions = @()
+        }
+    }
     if ($UpdateBaseline -and $baselineComparison.status -eq "failed") {
         # An explicit baseline refresh is the reviewer's escape hatch after a
         # stable fixture/metric-set decision. Absolute targets still gate it.
@@ -247,7 +258,7 @@ try {
     }
 
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmssfff"
-    $outputPath = Join-Path $outputDirectoryPath "$timestamp-windows-x64.json"
+    $outputPath = Join-Path $outputDirectoryPath "$timestamp-$($environmentDecision.report_suffix).json"
     $report = [ordered]@{
         schema_version = 1
         generated_at = $benchmark.generated_at
@@ -260,12 +271,17 @@ try {
         iterations = $benchmark.iterations
         fixtures = $benchmark.fixtures
         verification = [ordered]@{
+            environment = $environmentDecision.status
+            environment_error = $environmentDecision.error
             absolute_targets = $absoluteTargetStatus
             baseline = $baselineComparison
         }
     }
     Save-Utf8NoBomJson $outputPath $report
 
+    if ($environmentDecision.status -ne "pass") {
+        throw "$($environmentDecision.error) Report: $outputPath"
+    }
     if ($absoluteFailures.Count -gt 0) {
         throw "Absolute performance target failed: $($absoluteFailures -join ', '). Report: $outputPath"
     }

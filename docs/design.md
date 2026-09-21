@@ -1457,6 +1457,7 @@ vba-schema/
 依存物がなければ`THIRD_PARTY_NOTICES.md`は不要。
 
 `src/`は開発・テスト用、`dist/VBA-Schema/`は3ファイルだけを含むユーザー配布用、`.xlsm`はxlflow検証用成果物として区別する。現行のxlflow source tree全体から直接3-component workbookを生成せず、3ファイルのallowlistからrelease staging projectを作る。
+release stagingのDestinationはrepository root、`src`、`.git`、`.xlflow`、`build`と重複してはならず、`tools/release-stage.ps1`は既存Destinationの削除より前にこの重複を拒否する。
 
 ---
 
@@ -1623,7 +1624,9 @@ performance benchmark
 Excelのfixture結果をtracked baselineと比較し、macOS／Windows 32-bitは
 対応可能な実装を維持するが未検証・非保証とする。詳細なfixture、counter、
 threshold、session ownershipは`docs/specs/benchmark-contract.md`と
-`docs/adr/ADR-0008-runtime-benchmark-contract.md`を正とする。
+`docs/adr/ADR-0008-runtime-benchmark-contract.md`を正とする。ベンチマークは
+`office_bitness`が`x64`でない場合にbaseline比較・更新を行わず、unsupported
+reportを残して失敗する。
 
 ---
 

@@ -36,4 +36,8 @@ fixtures).
 The report records machine, Office bitness, Excel version, and the exact
 command. The task starts only a clean managed session, refuses to attach to a
 user-owned or busy workbook, and discards only the session it owns. macOS and
-32-bit Excel are not covered by the baseline and remain unverified.
+32-bit Excel are not covered by the baseline and remain unverified. If the
+report's `office_bitness` is not `x64`, `tools/run-benchmark.ps1` writes the
+result with an `unsupported-*` filename, marks `verification.environment` as
+`failed`, skips baseline comparison/update, and fails the task. A non-x64 run
+must never be compared with or used to update the Windows x64 baseline.

@@ -34,6 +34,10 @@ helpers out of the three-file VBE import payload.
   values. A tracked Windows x64 baseline lives at
   `benchmarks/windows-x64-baseline.json`; a new result may not regress a
   baseline median by more than 25 percent.
+- `tools/run-benchmark.ps1` fails closed when the report's `office_bitness` is
+  not `x64`: it writes an explicitly unsupported report, skips baseline
+  comparison and baseline update, and returns a failure instead of comparing a
+  non-x64 run with the Windows x64 baseline.
 - Timestamped reports under `artifacts/benchmarks/` are local evidence and are
   ignored by Git. Benchmark modules are excluded from build and static metric
   collection, so they cannot enter the release payload or distort production
