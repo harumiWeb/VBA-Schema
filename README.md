@@ -69,12 +69,23 @@ schema定義の誤り（例: `ArrayOf(Nothing)`、空のUnion、重複modifier�
 
 `Email`は典型的な入力ミスを検出するASCII簡易形式です。全体254 UTF-16 code unit以下、一つの `@`、ASCII local/domainを要求します。Unicode、quoted local、comment、IP literalを含むRFCの全形式には対応せず、RFC完全準拠を保証しません。
 
+## サンプル
+
+利用者向けの独立したVBA標準Moduleサンプルを [`sample/`](sample/README.md) に用意しています。各サンプルは、先に3ファイルpayloadをimportしてから、サンプル`.bas`を追加importして実行します。
+
+- [注文・明細インポート](sample/01-order-import/README.md): nested object、配列、Enum、Pattern、Email、Strict
+- [アプリケーション設定](sample/02-settings-validation/README.md): Enum、範囲制約、Pattern、OptionalField、Nullable
+- [APIレスポンス相当](sample/03-api-payload/README.md): Union、Literal、nested object、Collection
+
+サンプルはJSON取得やExcel表の変換を行わず、変換後の`Dictionary`／`Collection`を検証する部分に集中しています。`sample/`は3-file import payloadの一部ではありません。
+
 ## 開発と検証
 
 Windowsでのsource checksは次で実行できます。
 
 ```powershell
 rtk task verify
+rtk task samples-verify
 rtk task release-smoke
 rtk task benchmark
 ```

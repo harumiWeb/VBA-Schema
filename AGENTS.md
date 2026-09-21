@@ -74,6 +74,17 @@ root: .
 │   └── workbook/
 │       ├── Sheet1.bas
 │       └── ThisWorkbook.bas
+├── sample/
+│   ├── 01-order-import/
+│   │   ├── README.md
+│   │   └── SampleOrderImport.bas
+│   ├── 02-settings-validation/
+│   │   ├── README.md
+│   │   └── SampleSettingsValidation.bas
+│   ├── 03-api-payload/
+│   │   ├── README.md
+│   │   └── SampleApiPayload.bas
+│   └── README.md
 ├── tools/
 │   ├── benchmark-environment.ps1
 │   ├── check-format.ps1
@@ -84,6 +95,7 @@ root: .
 │   ├── release-verify.ps1
 │   ├── test-benchmark-environment.ps1
 │   ├── test-release-stage-safety.ps1
+│   ├── verify-samples.ps1
 │   └── provision-workbook.ps1
 ├── tasks/
 │   ├── lessons.md

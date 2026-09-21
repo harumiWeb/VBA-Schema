@@ -75,6 +75,7 @@ docs/specs/v1-contract.md
 - xlflow session: inactive
 - M7、MITライセンス、M8レビュー指摘（release staging安全性・benchmark環境ゲート）はコミット済み。独立Pass 2のreview targetは`f3d0434`で、blocking findingなし。
 - CI hardening: `0fd4411`、`417b724`、`f273767`、`7f04898`で固定xlflow実体、VBA checkout改行、release safety probeの終了コードを修正済み。
+- user-facing samples: `sample/`に注文・設定・APIレスポンスの3プロジェクトを追加し、root README・design・AGENTS treeへ反映済み。
 
 ### 2.2 Confirmed evidence
 
@@ -85,6 +86,8 @@ docs/specs/v1-contract.md
 - `rtk xlflow analyze --json`: success
 - `rtk xlflow test list --json`: focused testを含む60件を検出（23 source files）
 - GitHub Actions `source-check` run `35587365802`: success（pinned xlflow install/version check、lint、analyze、production hygiene、LF format check、test discovery、release stage/verify、安全性テスト、benchmark環境ガード）
+- `rtk task samples-verify`: sample 3 filesのformat、isolated lint、isolated analyzeがpass
+- Windows 64-bit managed sessionでsample 3 macroのimport・compile・diagnostic runがpass（検証用workbookは保存せずdiscard）
 - `rtk xlflow test --session --no-save --json`: 59 pass、1 intentional TODO
 - `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
 - `rtk task release-smoke`: fresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件確認がpass
@@ -802,6 +805,15 @@ rtk xlflow test --session --no-save --json
 
 検証後はmanaged sessionだけを停止する。user-owned workbookは閉じない。いずれも最後に`rtk xlflow status --json`を実行し、dirty/recovery stateとcleanup結果をProgress Logへ残す。
 
+### User-facing samples
+
+- [x] `sample/`に注文・明細、アプリ設定、APIレスポンスの3独立プロジェクトを追加する。
+- [x] 各sampleに目的、import手順、実行macro、期待するIssue path/code、runtime依存、未検証platformを記載する。
+- [x] root README、`docs/design.md`、`AGENTS.md`のtreeへsample配置とpayload外の境界を反映する。
+- [x] `tools/verify-samples.ps1`と`task samples-verify`でformat、isolated lint、isolated analyzeを自動検証する。
+- [x] Windows 64-bit managed sessionで3 sample macroのimport・compile・diagnostic runを確認する。
+- [ ] macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable環境でのsample実行を検証する（実機提供時の別gate）。
+
 ### v1 completion gate
 
 - [x] `docs/design.md`のDefinition of Doneを全項目確認した。
@@ -881,6 +893,21 @@ rtk xlflow test --session --no-save --json
   - GitHub Actions `source-check` run `35587365802`: success（24s、全step pass）。
 - Unverified: GitHub-hosted CIでのExcel/VBE compile、Windows 32-bit/macOS Office、Dictionary/RegExp unavailable実機再現は引き続き未検証。
 - Next task: source-check成功を基準に、残るExcel/VBE compile ownershipまたはrelease作業を別gateとして進める。
+
+### 2026-09-21 — User-facing sample projects
+
+- Status: `sample/`へ利用者向けの3独立プロジェクトを追加し、README・設計書・AGENTS tree・roadmapを更新した。sample sourceは3-file import payloadと分離している。
+- Projects:
+  - `01-order-import`: 注文・明細のnested object、Collection、ArrayOf、Enum、Pattern、Email、DateTime、Strict。
+  - `02-settings-validation`: Enum、範囲制約、Pattern、ArrayOf、OptionalField、Nullable、Strict。
+  - `03-api-payload`: APIレスポンス相当のnested object、Union、Literal、ArrayOf、Nullable、Strict。
+- Changed: `sample/README.md`、各sampleのREADMEと`.bas`、`tools/verify-samples.ps1`、`Taskfile.yml`、`.github/workflows/source-check.yml`、`README.md`、`CHANGELOG.md`、`docs/design.md`、`AGENTS.md`。
+- Verification:
+  - `rtk powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-samples.ps1`: 3 files format unchanged、isolated lint/analyze pass。
+  - 一時source project `C:\temp\vba-schema-samples-compile-20260921`で`xlflow lint --json`、`xlflow analyze --json`、`xlflow push --session --no-save --json`がpass。
+  - Windows 64-bit managed sessionで`SampleOrderImport.RunOrderImportSample`、`SampleSettingsValidation.RunSettingsValidationSample`、`SampleApiPayload.RunApiPayloadSample`をdiagnostic/headless実行し、全てsuccess。sessionは`--discard`で停止し未保存変更を破棄。
+- Unverified: macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable環境でのsample実行。
+- Next task: sample変更をcommitし、source-checkでsample verificationを含むCI結果を確認する。
 
 ### 2026-09-21 — M8 independent review / Pass 1 remediation
 

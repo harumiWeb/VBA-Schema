@@ -1435,8 +1435,17 @@ vba-schema/
 │   │   └── VValidationResult.cls
 │   └── workbook/
 │
-├── examples/
-│   └── Example.bas
+├── sample/
+│   ├── 01-order-import/
+│   │   ├── README.md
+│   │   └── SampleOrderImport.bas
+│   ├── 02-settings-validation/
+│   │   ├── README.md
+│   │   └── SampleSettingsValidation.bas
+│   ├── 03-api-payload/
+│   │   ├── README.md
+│   │   └── SampleApiPayload.bas
+│   └── README.md
 │
 ├── docs/
 │   ├── adr/
@@ -1456,7 +1465,7 @@ vba-schema/
 
 依存物がなければ`THIRD_PARTY_NOTICES.md`は不要。
 
-`src/`は開発・テスト用、`dist/VBA-Schema/`は3ファイルだけを含むユーザー配布用、`.xlsm`はxlflow検証用成果物として区別する。現行のxlflow source tree全体から直接3-component workbookを生成せず、3ファイルのallowlistからrelease staging projectを作る。
+`src/`は開発・テスト用、`sample/`は利用者向け補助サンプル、`dist/VBA-Schema/`は3ファイルだけを含むユーザー配布用、`.xlsm`はxlflow検証用成果物として区別する。現行のxlflow source tree全体から直接3-component workbookを生成せず、3ファイルのallowlistからrelease staging projectを作る。`sample/`の`.bas`は配布payloadへ混在させない。
 release stagingのDestinationはrepository root、`src`、`.git`、`.xlflow`、`build`と重複してはならず、`tools/release-stage.ps1`は既存Destinationの削除より前にこの重複を拒否する。
 
 ---

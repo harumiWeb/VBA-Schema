@@ -62,6 +62,10 @@ jobs:
         shell: pwsh
         run: ./tools/check-format.ps1
 
+      - name: Verify user-facing samples
+        shell: pwsh
+        run: ./tools/verify-samples.ps1
+
       - name: Discover VBA tests
         shell: pwsh
         run: |

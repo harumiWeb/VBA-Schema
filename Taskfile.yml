@@ -33,6 +33,11 @@ tasks:
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-format.ps1
 
+  samples-verify:
+    desc: Check sample VBA formatting, lint, and runtime-risk analysis in isolation
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-samples.ps1
+
   test-list:
     desc: Discover source-defined VBA tests without opening Excel
     cmds:
@@ -50,6 +55,7 @@ tasks:
       - analyze
       - quality-audit
       - fmt-check
+      - samples-verify
       - test-list
       - release-safety-test
       - benchmark-environment-test
