@@ -15,14 +15,45 @@ When making changes to the project structure, workers must update the following 
 
 ```txt
 root: .
+├── .github/
+│   └── workflows/
+│       └── source-check.yml
+├── dist/
+│   └── VBA-Schema/ (generated, ignored)
 ├── docs/
 │   ├── adr/
+│   │   ├── ADR-0005-literal-enum-pattern-email-boundary.md
+│   │   ├── ADR-0006-union-branch-ownership-and-error-boundary.md
+│   │   ├── ADR-0007-release-and-ci-boundary.md
+│   │   ├── ADR-0001-small-distribution-and-portable-core.md
+│   │   ├── ADR-0002-vba-safe-api-and-error-boundary.md
+│   │   ├── ADR-0003-object-dictionary-and-schema-cycle-boundary.md
+│   │   └── ADR-0004-array-collection-sequence-boundary.md
 │   ├── specs/
+│   │   └── v1-contract.md
+│   ├── xlflow-issues/
 │   └── design.md
 ├── src/
+│   ├── classes/
+│   │   ├── VSchema.cls
+│   │   └── VValidationResult.cls
 │   ├── modules/
 │   │   ├── Tests/
-│   │   │   └── SampleTests.bas
+│   │   │   ├── PublicApiCompile.bas
+│   │   │   ├── TestLiteral.bas
+│   │   │   ├── TestPattern.bas
+│   │   │   ├── TestUnion.bas
+│   │   │   ├── SampleTests.bas
+│   │   │   ├── TestArray.bas
+│   │   │   ├── TestAnyValue.bas
+│   │   │   ├── TestBool.bas
+│   │   │   ├── TestDateTime.bas
+│   │   │   ├── TestErrors.bas
+│   │   │   ├── TestNullable.bas
+│   │   │   ├── TestNumber.bas
+│   │   │   ├── TestResult.bas
+│   │   │   ├── TestObject.bas
+│   │   │   └── TestText.bas
 │   │   ├── Xlflow/
 │   │   │   ├── XlflowAssert.bas
 │   │   │   ├── XlflowDebug.bas
@@ -30,13 +61,22 @@ root: .
 │   │   │   └── XlflowUI.bas
 │   │   ├── App.bas
 │   │   ├── Main.bas
+│   │   ├── Schema.bas
 │   │   └── Ui.bas
 │   └── workbook/
 │       ├── Sheet1.bas
 │       └── ThisWorkbook.bas
+├── tools/
+│   ├── check-format.ps1
+│   ├── release-stage.ps1
+│   ├── release-smoke.ps1
+│   ├── release-verify.ps1
+│   └── provision-workbook.ps1
 ├── tasks/
-│   └── lessons.md
+│   ├── lessons.md
+│   └── todo.md
 ├── AGENTS.md
+├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
 ├── Taskfile.yml

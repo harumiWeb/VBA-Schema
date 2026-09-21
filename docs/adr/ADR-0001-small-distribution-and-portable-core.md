@@ -13,8 +13,10 @@ VBA-Schemaは、既存のVBAプロジェクトへ容易に持ち込めるラン�
 ## Decision
 
 - 配布対象のproduction componentは`Schema.bas`、`VSchema.cls`、`VValidationResult.cls`の3ファイルに限定する。
+- `dist/VBA-Schema/`は上記3ファイルから生成するimport payloadであり、sourceと分離したcommit対象外のstaging生成物とする。
 - テスト、xlflow実行基盤、サンプル、生成補助コードは配布対象に含めない。
 - 外部参照設定を要求せず、利用可能な実行時コンポーネントはlate bindingする。
+- Issueの公開表現は`Scripting.Dictionary`をv1の必須concrete typeとして固定する。portable fallbackはv1へ導入せず、component unavailable時はenvironment failureとして扱う。
 - Windows API、Win32固有の型宣言、Excel Object Modelへのコア依存を追加しない。
 - 検証済みのサポート対象はWindows 64-bit Officeとする。
 - macOS OfficeとWindows 32-bit Officeは「互換性を意識するが未検証」と表示し、サポート済みとは表示しない。
@@ -31,8 +33,8 @@ VBA-Schemaは、既存のVBAプロジェクトへ容易に持ち込めるラン�
 
 ## Rationale
 
-- Tests: `docs/specs/v1-contract.md`に配布smoke testとcompatibility gateを定義する。
-- Code: production sourceは`src/modules/Schema.bas`、`src/classes/VSchema.cls`、`src/classes/VValidationResult.cls`に配置する。
+- Tests: `docs/specs/v1-contract.md`に配布smoke testとcompatibility gateを定義し、`tools/release-smoke.ps1`でfresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件を検証する。
+- Code: production sourceは`src/modules/Schema.bas`、`src/classes/VSchema.cls`、`src/classes/VValidationResult.cls`に配置し、`dist/VBA-Schema/`はallowlistから生成するcommit対象外payloadとする。
 - Related specs: `docs/specs/v1-contract.md`
 
 ## Supersedes

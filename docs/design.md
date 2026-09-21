@@ -288,7 +288,7 @@ End Enum
 
 Enumは外部公開しない。
 
-factoryからprivate initializerを呼べないため、Publicだがunsupportedな内部初期化APIを使用してよい。
+factoryからprivate initializerを呼べないため、Publicだがunsupportedな内部初期化APIを使用する。通常のschema kind値ではなく、Schema.basだけが生成する内部encoded kindを渡す。
 
 例:
 
@@ -296,7 +296,9 @@ factoryからprivate initializerを呼べないため、Publicだがunsupported�
 Public Function InternalInitialize(ByVal KindCode As Long) As VSchema
 ```
 
-このprocedureは一度だけ呼び出せるものとし、不正なkind、再初期化、直接生成した未初期化schemaのvalidationはprogrammer misuseとしてErrを投げる。利用者向けの安定Public APIには含めない。
+このprocedureは一度だけ呼び出せるものとし、通常の直接呼び出し・encoded kindの不正値は`vbObjectError + 2100`、再初期化は`vbObjectError + 2102`、直接生成した未初期化schemaのvalidationはprogrammer misuseとしてErrを投げる。これはsecurity boundaryではなく、利用者向けの安定Public APIには含めない。
+
+VBAでは同じclassの別instanceのPrivate memberを参照できないため、child schemaの合成・path付きnested validation・schema graph preflightに必要な`Internal*` hookもPublicで提供する。これらもunsupported internal-only APIであり、利用者向けの安定Public APIには含めない。
 
 ---
 
@@ -322,14 +324,18 @@ Private mLengthValue As Long
 Private mIntegerOnly As Boolean
 Private mEmail As Boolean
 
+Private mHasPattern As Boolean
 Private mPattern As String
+Private mHasLiteral As Boolean
+Private mLiteralValue As Variant
+Private mEnumValues As Variant
+Private mPatternRegExp As Object
+Private mEmailRegExp As Object
 
 Private mFields As Object
 Private mFieldOrder As Collection
 Private mItemSchema As VSchema
 
-Private mLiteralValue As Variant
-Private mEnumValues As Variant
 Private mUnionSchemas As Collection
 
 Private mObjectMode As Long
@@ -467,9 +473,9 @@ v1では公開しない将来候補とし、最短でもv1.1以降とする。
 Schema.Text().Pattern("^[A-Z]{3}-\d{4}$")
 ```
 
-`VBScript.RegExp`をlate bindingで使用する。
+`VBScript.RegExp`をlate bindingで使用する。`IgnoreCase=False`、`Global=False`、`MultiLine=False`に固定し、Expressionは入力全体への一致だけを成功とする。
 
-RegExp instanceはschema生成時ではなくvalidation時またはlazy cacheで生成する。
+RegExp instanceはschema生成時ではなくvalidation時またはlazy cacheで生成する。不正なExpressionは最初のvalidation時にprogrammer misuseとしてErrを投げ、runtime component不足はenvironment failureとする。
 
 ---
 
@@ -479,11 +485,9 @@ RegExp instanceはschema生成時ではなくvalidation時またはlazy cacheで
 Schema.Text().Email()
 ```
 
-Email validationはRFC完全準拠を目指さない。
+Email validationはRFC完全準拠を目指さない。localとdomainを一つの`@`で区切るASCII簡易形式、全体長254 UTF-16 code unit以下とし、空、local-only、複数`@`、空白、Unicode、quoted local、comment、IP literalは受理しない。
 
-目的は典型的な入力ミス検出である。
-
-過剰に厳格な正規表現を使用してはならない。
+目的は典型的な入力ミス検出であり、過剰に厳格なRFC実装を提供することではない。
 
 ---
 
@@ -582,7 +586,7 @@ Dictionaryをarrayとして扱ってはならない。
 Schema.Literal("active")
 ```
 
-比較にはVBAのVariant比較による曖昧なcoercionを避ける。
+比較にはVBAのVariant比較による曖昧なcoercionを避ける。`Literal`と`EnumOf`の候補は構築時にscalar categoryを検証し、`EnumOf`は一次元配列の内容をsnapshotする。
 
 以下は原則異なるものとして扱う。
 
@@ -606,7 +610,7 @@ Schema.EnumOf(Array("pending", "active", "disabled"))
 
 受信値が候補のどれかと一致すれば成功。
 
-comparison semanticsはLiteralと同じ。
+comparison semanticsはLiteralと同じ。候補の重複はprogrammer misuseとして拒否する。
 
 ---
 
@@ -623,11 +627,9 @@ Options.Add Schema.Number()
 Set S = Schema.UnionOf(Options)
 ```
 
-Union validationは順番に試し、一つでも成功すれば成功。
+`UnionOf`は入力`Collection`のbranch順を構築時にsnapshotする。ただし各`VSchema` instance自体はcloneせず、child schemaへの参照を保持するため、構築後のchild builder変更はUnionにも反映される。空のCollection、`Nothing`、`VSchema`以外、未初期化`VSchema`はprogrammer misuseとして`vbObjectError + 2100`を送出する。
 
-全失敗時には各branchの全エラーをそのまま並べるのではなく、トップレベルに簡潔なunion errorを返す。
-
-必要に応じて詳細branch errorを内部保持してもよい。
+Union validationはbranch順に試し、一つでも成功すれば成功する。nested Unionはflattenせず、構造を保持したまま再帰的に検証する。全branch失敗時はbranchごとの詳細Issueを外部へ漏らさず、失敗pathに一件の`invalid_union` Issueを返す。branch内部のprogrammer/environment errorはvalidation failureへ変換せず、そのまま送出する。
 
 ---
 
@@ -725,6 +727,10 @@ received = "foo"
 
 `received`はObject参照や配列そのものではなく、安全なString要約とする。Issueの型、順序、snapshot semanticsは`docs/specs/v1-contract.md`に従う。
 
+required fieldが存在しない場合の`received`は`Missing`とする。present `Empty`や`Null`とは異なる状態であり、`OptionalField`はmissingだけを許可する。
+
+v1では`received`と`ErrorText`の文法をspecで固定する。Stringのescape/truncate、Numberのlocale非依存表現、Dateの秒精度、Issue行の改行を実装ごとに変えてはならない。
+
 Dictionary例:
 
 ```vb
@@ -755,6 +761,7 @@ invalid_email
 invalid_literal
 invalid_enum
 invalid_union
+invalid_key
 unknown_field
 invalid_array_rank
 ```
@@ -805,19 +812,14 @@ v1ではpath segment専用クラスを持たない。
 
 `VValidationResult.ErrorText`は人間向け表示を返す。
 
+形式は`<path>: <message> (expected=<expected>, received=<received>)`とし、Issue間は`vbCrLf`で連結する。raw input全体やsecretを追加表示しない。
+
 例:
 
 ```text
-Validation failed with 3 issues:
-
-$.users[2].email
-  Invalid email address
-
-$.users[2].age
-  Expected number >= 18, received 16
-
-$.settings.timeout
-  Expected Number, received String
+$.users[2].email: Invalid email address (expected=email, received=String("foo"))
+$.users[2].age: Number is below the minimum. (expected=Number >= 18, received=Number(16))
+$.settings.timeout: The value has an invalid type. (expected=Number, received=String("slow"))
 ```
 
 フォーマットはテストで固定する。
@@ -860,6 +862,8 @@ Currency
 Decimal VariantとLongLongは、32-bit/64-bitで同じ契約を検証できるまでv1では受理しない。
 
 constraint boundaryはVariantで保持し、無条件にDoubleへ変換しない。
+
+numeric comparisonは型対応のlossless wideningとround-trip確認を行い、precision loss、overflow、NaN、Infinityを黙って成功扱いしない。constraint評価順はspecの固定順に従い、nodeごとに最初の1件だけをIssueへ追加する。
 
 Booleanは数値として扱わない。
 
@@ -991,13 +995,14 @@ kindごとにprivate validation procedureへ分割する。
 ```text
 ValidateObject(value, path):
 
-1. Dictionary-like objectか確認
+1. `TypeName(value) = "Dictionary"`と`Count`／`Exists`／`Keys`の限定capabilityを確認する。失敗時は`invalid_type` issue
 2. schema fieldsを列挙
-3. inputにkeyが存在するか確認
+3. `Keys`列挙と`StrComp(..., vbBinaryCompare)`でinputにkeyが存在するか確認
 4. 無ければOptional判定
 5. あればchild schemaをrecursive validation
-6. Strictの場合はinput keysを列挙
-7. schemaに存在しないkeyをunknown_fieldとして追加
+6. String以外のinput keyは`.Strict()`にかかわらず`invalid_key`としてroot object pathへ追加
+7. Strictの場合はString input keysをbinary ordinal順に列挙
+8. schemaに存在しないkeyを`unknown_field`として追加
 ```
 
 ---
@@ -1007,17 +1012,18 @@ ValidateObject(value, path):
 ```text
 ValidateArray(value, path):
 
-1. VBA arrayかCollectionか判定
-2. length constraintを検証
-3. 各要素に対してchild schemaを再帰的に実行
-4. pathに[index]を追加
+1. VBA arrayかCollectionか判定（Dictionaryはarrayとして扱わない）
+2. 未初期化dynamic arrayは0要素、二次元以上は`invalid_array_rank`
+3. length constraintを検証
+4. 各要素に対してchild schemaを再帰的に実行
+5. pathに0始まりlogical `[index]`を追加
 ```
 
 native VBA arrayでは`LBound` / `UBound`を使用。
 
 空配列や未初期化dynamic arrayでruntime errorを起こさないよう注意する。
 
-このケース専用の安全なarray detection helperを実装する。
+このケース専用の安全なarray detection helperを実装し、probe中のErr stateをhelper内でclearしてから通常のvalidationへ戻す。input array／Collectionは変更しない。
 
 ---
 
@@ -1025,17 +1031,23 @@ native VBA arrayでは`LBound` / `UBound`を使用。
 
 VBAにはinterface reflectionがないため、v1ではDictionaryを明示的に対象とする。
 
-可能な判定:
+v1の判定は次の入口と限定capability検査を組み合わせる。
 
 ```vb
 TypeName(Value) = "Dictionary"
 ```
 
-ただし環境差を考慮する。
+`Count`、`Exists`、`Keys`の読み取りに失敗した場合は入力の`invalid_type`とする。Issue用Dictionaryの生成自体が失敗する場合はruntime/environment error (`vbObjectError + 2200`)として伝播する。
 
-`Object`を受け取り`.Exists`を試すようなexception-driven duck typingは乱用しない。
+`Object`を受け取り任意memberを試すexception-driven duck typingは行わず、TypeName後の限定helperだけで検査する。Input Dictionaryの`CompareMode`は変更せず、キー比較は常にbinaryとする。
 
-必要な場合は限定的なhelperで行う。
+String以外のkeyは`invalid_key`、strict unknown String keyは`unknown_field`とする。unknown fieldはpassthroughが既定であり、validation中にinputを変更しない。
+
+---
+
+# 28.1 Schema graph preflight
+
+builderはmutableでschemaを共有できるため、`SafeParse`開始時にschema graphをDFSで検査する。active pathは`Collection`に保持し、schema identityはVBAの`Is`比較で判定する。direct／indirect cycleを検出した時点で`vbObjectError + 2103`を投げ、value validationやIssue生成を開始しない。shared childの非循環再利用は許可する。`ObjPtr`、Windows API、pointer-size依存は使用しない。
 
 ---
 
@@ -1203,6 +1215,8 @@ Else
     Debug.Print Result.ErrorText
 End If
 ```
+
+VBE import payloadはproduction 3ファイルだけとし、README、LICENSE、CHANGELOG、sample workbook、ZIPなどは別のrelease/repository assetとして提供する。staged VBA sourceのencodingはUTF-8（BOMなし）、改行コードはLFに固定する。versionの正はGit tagとCHANGELOGとし、VBA sourceへversion定数は追加しない。
 
 ---
 

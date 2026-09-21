@@ -6,3 +6,4 @@
 # xlflow
 .xlflow/
 build/
+dist/

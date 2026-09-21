@@ -2,12 +2,68 @@
 
 version: '3'
 
-vars:
-  GREETING: Hello, world!
-
 tasks:
   default:
-    desc: Print a greeting message
+    desc: Show available development tasks
     cmds:
-      - echo "{{.GREETING}}"
-    silent: true
+      - task --list
+
+  provision-workbook:
+    desc: Create build/Book.xlsm from an isolated xlflow scaffold
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/provision-workbook.ps1 -Destination build/Book.xlsm
+
+  lint:
+    desc: Run xlflow source lint
+    cmds:
+      - xlflow lint --json
+
+  analyze:
+    desc: Run xlflow runtime-risk analysis
+    cmds:
+      - xlflow analyze --json
+
+  fmt-check:
+    desc: Check VBA formatting without modifying source
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-format.ps1
+
+  test-list:
+    desc: Discover source-defined VBA tests without opening Excel
+    cmds:
+      - xlflow test list --json
+
+  test:
+    desc: Run VBA tests in the active xlflow session without saving
+    cmds:
+      - xlflow test --session --no-save --json
+
+  verify-source:
+    desc: Run Excel-free source checks
+    deps:
+      - lint
+      - analyze
+      - fmt-check
+      - test-list
+
+  verify:
+    desc: Run the currently available Excel-free verification checks
+    deps:
+      - verify-source
+
+  release-stage:
+    desc: Stage the three-file import payload under dist/VBA-Schema
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-stage.ps1
+
+  release-verify:
+    desc: Verify the staged three-file import payload
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-verify.ps1
+
+  release-smoke:
+    desc: Import the three-file payload into a fresh workbook and run scalar smoke checks
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-stage.ps1
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-verify.ps1
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-smoke.ps1

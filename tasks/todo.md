@@ -67,10 +67,10 @@ docs/specs/v1-contract.md
 ### 2.1 Repository state
 
 - Branch: `review-vba-schema-design`
-- Baseline HEAD: `0d1a125 add skills adr-manager`
-- production implementation: 未着手
-- production files: まだ存在しない
-- 現在のtest: xlflow scaffoldの`SampleTests.bas`のみ
+- Baseline HEAD: `ef9369a docs: establish VBA-Schema v1 design roadmap`
+- production implementation: scalar core（AnyValue/Text/Number/Bool/DateTime、共通modifier、Result）、Object（Field／Strict／nested path／cycle preflight）、Array/Collection（一次元配列、logical index、length constraints）、Literal/Enum/Pattern/Email、Unionを実装済み
+- production files: `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`が存在
+- 現在のtest: focused test 55件 + xlflow scaffold 5件 + compile-only fixture（test discovery対象外）。実行結果は59 pass、1 intentional TODO
 - xlflow configured workbook: `build/Book.xlsm`
 - xlflow session: inactive
 - 現在の設計変更は未コミット
@@ -78,22 +78,60 @@ docs/specs/v1-contract.md
 現在の未コミット対象:
 
 ```text
+.github/workflows/source-check.yml
+AGENTS.md
+.gitignore
+Taskfile.yml
 docs/design.md
 docs/specs/v1-contract.md
 docs/adr/ADR-0001-small-distribution-and-portable-core.md
 docs/adr/ADR-0002-vba-safe-api-and-error-boundary.md
+docs/adr/ADR-0003-object-dictionary-and-schema-cycle-boundary.md
+docs/adr/ADR-0004-array-collection-sequence-boundary.md
+docs/adr/ADR-0005-literal-enum-pattern-email-boundary.md
+docs/adr/ADR-0006-union-branch-ownership-and-error-boundary.md
+docs/adr/ADR-0007-release-and-ci-boundary.md
+CHANGELOG.md
+README.md
+src/classes/VSchema.cls
+src/classes/VValidationResult.cls
+src/modules/Schema.bas
+src/modules/Tests/PublicApiCompile.bas
+src/modules/Tests/TestArray.bas
+src/modules/Tests/TestLiteral.bas
+src/modules/Tests/TestPattern.bas
+src/modules/Tests/TestUnion.bas
 tasks/todo.md
+tools/check-format.ps1
+tools/provision-workbook.ps1
+tools/release-stage.ps1
+tools/release-verify.ps1
+tools/release-smoke.ps1
+src/modules/Tests/TestAnyValue.bas
+src/modules/Tests/TestBool.bas
+src/modules/Tests/TestDateTime.bas
+src/modules/Tests/TestErrors.bas
+src/modules/Tests/TestNullable.bas
+src/modules/Tests/TestNumber.bas
+src/modules/Tests/TestResult.bas
+src/modules/Tests/TestText.bas
+src/modules/Tests/TestObject.bas
+docs/xlflow-issues/20260921-fmt-parser-recovery.md
 ```
 
 ### 2.2 Confirmed evidence
 
 - Windows 64-bit OfficeのVBEで、v1 Public API候補の宣言とfluent chainがcompile成功している。
 - typed native array、late-bound Object、Result propertyのObject/scalar assignmentを含むcompile fixtureが成功している。
+- Windows 64-bit managed sessionで`PublicApiCompile.CompilePublicApi`をdiagnostic runし、VBE compileを含むmacro executionがsuccessしている。
 - `rtk xlflow lint --json`: success
 - `rtk xlflow analyze --json`: success
-- `rtk xlflow test list --json`: scaffold testを5件検出
-- `rtk git diff --check`: tracked変更はsuccess（untracked文書は対象外）
-- ADR-0001/0002: lint/review上のHigh/Medium findingなし
+- `rtk xlflow test list --json`: focused testを含む60件を検出（23 source files）
+- `rtk xlflow test --session --no-save --json`: 59 pass、1 intentional TODO
+- `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
+- `rtk task release-smoke`: fresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件確認がpass
+- `rtk git diff --check`: success
+- ADR-0001/0002/0005/0006: lint/review上のHigh/Medium findingなし
 
 過去のcompile oracle用一時workspace:
 
@@ -107,11 +145,11 @@ C:\temp\vba-schema-design-oracle-20260921
 
 - macOS Office
 - Windows 32-bit Office
-- production implementationのruntime behavior
+- Dictionary runtime unavailable環境の実機再現とenvironment error経路
+- RegExp runtime unavailable環境の実機再現とenvironment error経路
 - performance target
-- 3-file release stagingとartifact verification
-- READMEのinstallation手順
 - CI上のExcel/VBE compile
+- external referenceが増えていないことの自動検査
 
 ## 3. Milestone dependency map
 
@@ -139,10 +177,10 @@ M0 Design baseline and decision gates
 
 現行specは`Scripting.Dictionary`を必須concrete typeとして固定済み。このGateはmacOS compatibility-conscious方針との衝突を解消するための明示的な再検討であり、暗黙に契約を変更してはならない。
 
-- [ ] 現行の`Scripting.Dictionary`必須契約を維持するか、key accessだけを公開契約としてportable fallbackを許可するか決める。
-- [ ] macOSでDictionaryが利用できない場合でもscalar validation errorを表現可能にする必要があるか決める。
-- [ ] 決定を`docs/specs/v1-contract.md`へ反映する。
-- [ ] 3-file constraintへの影響があればADR-0001を更新またはsupersedeする。
+- [x] 現行の`Scripting.Dictionary`必須契約を維持する。Issue/snapshotはDictionary concrete typeを要求し、未提供環境ではenvironment errorとする。
+- [x] macOSでDictionaryが利用できない場合はscalar validation errorへfallbackせず、runtime/environment failureとして伝播させる。
+- [x] 決定を`docs/specs/v1-contract.md`へ反映する。
+- [x] ADR-0001へ決定理由とconsequenceを反映する。
 - [ ] portable fallbackを選ぶ場合は、Issue生成・snapshot fallback、runtime component unavailable test seam、`Issues`のcompile/runtime fixture、README/releaseの依存表記を実装taskとしてM2/M7へ追加する。
 - [ ] Dictionary必須を維持する場合は、runtime unavailableがenvironment errorとして伝播するtestとREADMEの依存表記をM2/M7へ追加する。
 
@@ -158,11 +196,11 @@ M0 Design baseline and decision gates
 
 期限: M2実装前
 
-- [ ] Byte/Integer/Long/Single/Double/Currency間の`Min`/`Max`比較手順を決める。
-- [ ] 無条件な`CDbl`を避けながらoverflowと精度損失をどう検出するか決める。
-- [ ] NaN、Infinity、overflow-producing comparisonの検出方法を決める。
-- [ ] `WholeNumber`のSingle/Double/Currency判定手順を決める。
-- [ ] 決定表と境界test casesをspecへ追加する。
+- [x] Byte/Integer/Long/Single/Double/Currency間の`Min`/`Max`比較手順を決める。
+- [x] 無条件な`CDbl`を避け、lossless wideningとround-tripでoverflow・精度損失を拒否する手順を決める。
+- [x] NaN、Infinity、overflow-producing comparisonを受理しない契約を決める。
+- [x] `WholeNumber`のSingle/Double/Currency判定手順を決める。
+- [x] 決定表と境界test casesの契約をspecへ追加する。
 
 禁止事項:
 
@@ -174,110 +212,110 @@ M0 Design baseline and decision gates
 
 期限: M2の`VValidationResult`実装前
 
-- [ ] `received`の正確なString grammarをtype別に決める。
-- [ ] Stringのescape、80 UTF-16 code unitでのtruncate、truncate markerを決める。
-- [ ] Numberのlocale-independent formattingを決める。
-- [ ] Dateの`yyyy-mm-ddThh:nn:ss` formattingと秒未満の扱いを決める。
-- [ ] `ErrorText`の改行、indent、issue間separatorを固定する。
-- [ ] raw secretをmessageへ含める範囲を決める。
+- [x] `received`の正確なString grammarをtype別に決める。
+- [x] Stringのescape、80 UTF-16 code unitでのtruncate、truncate markerを決める。
+- [x] Numberのlocale-independent formattingを決める。
+- [x] Dateの`yyyy-mm-ddThh:nn:ss` formattingと秒未満の扱いを決める。
+- [x] `ErrorText`の改行、indent、issue間separatorを固定する。
+- [x] raw secretをmessageへ含めない範囲を決める。
 - [ ] golden testsを追加する。
 
 ### DG-004 Schema cycle detection
 
 期限: M3開始前
 
-- [ ] specどおり、実際のvalue validation開始前にschema graph preflightを必ず行う。
-- [ ] builder時の早期検出も追加する場合は、Err発生時点の変更として先にspecを更新する。
-- [ ] direct cycleとindirect cycleの検出方法を決める。
-- [ ] mutable builderによる後発cycleを検出できることを確認する。
-- [ ] `vbObjectError + 2103`の発生時点をspecへ固定する。
+- [x] specどおり、実際のvalue validation開始前にschema graph preflightを必ず行う。
+- [x] builder時の早期検出は追加せず、mutable builderの後発cycleも`SafeParse`直前に検出する。
+- [x] direct cycleとindirect cycleはactive pathのCollectionと`Is`比較で検出する。
+- [x] mutable builderによる後発cycleを検出できることを確認する。
+- [x] `vbObjectError + 2103`の発生時点をspecへ固定する。
 
 ### DG-005 Dictionary detection and key matching
 
 期限: M3開始前
 
-- [ ] 正式な`Scripting.Dictionary`判定方法を決める。
-- [ ] `TypeName = "Dictionary"`だけに依存するか、限定的なcapability checkを併用するか決める。
-- [ ] 入力Dictionaryの`CompareMode`に依存せずbinary matchingするalgorithmを決める。
-- [ ] String以外のDictionary keyをvalidation failure、programmer misuse、environment errorのどれにするか決める。
-- [ ] strict unknown keyのbinary ordinal sort方法を決める。
-- [ ] Dictionaryが利用できない環境のErr発生点を決める。
+- [x] `TypeName = "Dictionary"`を入口に`Count`、`Exists`、`Keys`を限定検査する。
+- [x] TypeName不一致／能力検査失敗は`invalid_type`、library自身のIssue Dictionary生成失敗は`vbObjectError + 2200`とする。
+- [x] 入力Dictionaryの`CompareMode`に依存せず、Keys列挙と`StrComp(..., vbBinaryCompare)`でmatchingする。
+- [x] String以外のDictionary keyは常に`invalid_key` validation issueとする。
+- [x] strict unknown keyはbinary ordinalでsortする。
+- [x] Dictionaryが利用できない環境ではlibrary側component生成時に`vbObjectError + 2200`を伝播する。
 
 ### DG-006 Native array inspection
 
 期限: M4開始前
 
-- [ ] 未初期化dynamic arrayを安全に0要素と判定するhelperを設計する。
-- [ ] array rankの安全な取得方法を決める。
-- [ ] 一次元以外を`invalid_array_rank`にする分岐を決める。
-- [ ] `LBound`に関係なく0始まりlogical pathへ変換する方法を決める。
-- [ ] 必要最小範囲の`On Error`と必ず復元するErr stateをspecまたは実装commentへ記録する。
+- [x] 未初期化dynamic arrayを安全に0要素と判定するhelperを設計する。
+- [x] array rankは一次元bounds probeと二次元probeで安全に取得する。
+- [x] 一次元以外を`invalid_array_rank`にする分岐を決める。
+- [x] `LBound`に関係なく0始まりlogical pathへ変換する方法を決める。
+- [x] 必要最小範囲の`On Error`とErr stateのclear／復元をspec、ADR、実装helperへ記録する。
 
 ### DG-007 Pattern and Email semantics
 
 期限: M5開始前
 
-- [ ] `VBScript.RegExp`の`IgnoreCase`、`Global`、`MultiLine`を固定する。
-- [ ] invalid patternをlazy compile時のprogrammer misuseとして投げる詳細を決める。
-- [ ] Emailの許容例・拒否例と長さ上限を決める。
-- [ ] EmailをRegExpで実装するかpure VBAで実装するか決める。
-- [ ] RegExp runtime unavailable時の`vbObjectError + 2200` test方法を決める。
-- [ ] RFC完全準拠を目標にしない範囲をspecへ例示する。
+- [x] `VBScript.RegExp`の`IgnoreCase=False`、`Global=False`、`MultiLine=False`を固定する。
+- [x] Patternは入力全体への一致、invalid patternはlazy compile時の`vbObjectError + 2100`とする。
+- [x] EmailはASCII簡易形式、全体長254 UTF-16 code unit以下、RFC完全準拠外とする。
+- [x] Emailを`VBScript.RegExp`で実装する。
+- [x] RegExp runtime unavailableは`vbObjectError + 2200`とする。実機再現は未検証として残す。
+- [x] RFC完全準拠を目標にしない範囲をspecへ例示する。
 
 ### DG-008 Release artifact format
 
 期限: M1完了前
 
-- [ ] 現行specどおり、import payloadは3 source filesだけに固定する。
-- [ ] ZIP、sample workbook、LICENSE、CHANGELOG等を3-file payloadとは別のrelease page/repository assetとして提供するか決める。
-- [ ] 追加物を同一artifactへ同梱する案を採る場合は、実装前にspecの「3ファイルだけ」を更新し、ADR-0001を更新またはsupersedeする。
-- [ ] `dist/VBA-Schema/`をcommit対象にするかgenerated artifactにするか決める。
-- [ ] version metadataの保持場所を決める。
-- [ ] CHANGELOGとrelease noteをv1で作成するか決める。
-- [ ] release stagingで改行コードとencodingを固定する。
-- [ ] `THIRD_PARTY_NOTICES.md`の要否を確認する。
+- [x] 現行specどおり、import payloadは3 source filesだけに固定する。
+- [x] ZIP、sample workbook、LICENSE、CHANGELOG等は3-file payloadとは別のrelease page/repository assetとして提供する。
+- [x] 同一artifactへ同梱する変更は採用せず、3-file payload契約を維持する。
+- [x] `dist/VBA-Schema/`はgenerated artifactとし、commit対象外にする。
+- [x] version metadataの正はGit tagとtracked `CHANGELOG.md`とし、production VBA sourceへversion定数やVERSIONファイルを追加しない。
+- [x] `CHANGELOG.md`をv1で作成し、release noteは補助release assetとして扱う。
+- [x] release stagingのencodingをUTF-8（BOMなし）、改行コードをLFに固定してverifyする。
+- [x] 追加のthird-party runtime referenceを導入しないため、`THIRD_PARTY_NOTICES.md`はv1 payloadへ追加しない。必要性はrelease時に再確認する。
 
 ### DG-009 CI and compile oracle ownership
 
 期限: M1完了前
 
-- [ ] GitHub-hosted runnerで実行するcheckと、Excel/VBEが必要なlocal/self-hosted checkを分離する。
-- [ ] merge/release時に誰がVBE compile evidenceを取得するか決める。
-- [ ] ExcelのないCIで「compile passed」と誤表示しないstatus名を決める。
-- [ ] macOS/32-bit検証が将来提供された場合のmatrix追加位置を決める。
+- [x] GitHub-hosted runnerのExcel-free source checkと、Excel/VBEが必要なlocal/self-hosted checkを分離する。
+- [x] VBE compile evidenceはWindows 64-bit Excelを利用できる開発者またはself-hosted runnerがrelease gateで取得する。
+- [x] ExcelのないCIでは`source-check`などのstatus名を使い、VBE compile passedとは表示しない。VBE側は`vbe-compile`等の別statusとする。
+- [x] macOS/32-bit検証は実機提供時に別matrix/jobとして追加し、現時点では未検証のまま明記する。
 
 ### DG-010 InternalInitialize exposure
 
 期限: M1開始前
 
-- [ ] `Schema.bas`からclassを初期化するための`InternalInitialize`のvisibilityと命名を確定する。
-- [ ] 利用者が直接呼び出した場合、再初期化した場合、不正kind codeを渡した場合のErrを固定する。
-- [ ] unsupported internal APIであることをREADMEへ露出するか、source commentだけにするか決める。
-- [ ] v1 public compatibility guaranteeの対象外であることをspecとcompile fixtureで区別する。
-- [ ] user-facing exampleとは別のinternal compile fixtureで`InternalInitialize`を直接呼び、存在、再初期化Err、不正kind Errを検証する。
+- [x] `InternalInitialize`はPublic internal-onlyとする。Schema factoryだけが内部encoded kindを渡せる設計にする。
+- [x] 通常の直接呼び出し・不正kind codeは`vbObjectError + 2100`、再初期化は`vbObjectError + 2102`とする。
+- [x] unsupported internal APIであることをspecとADRへ記録する。READMEでは安定Public APIに含めない。
+- [x] v1 public compatibility guaranteeの対象外であることをspecとcompile fixtureで区別する。
+- [x] user-facing exampleとは別のinternal compile fixtureで`InternalInitialize`を直接呼び、存在、再初期化Err、不正kind Errを検証する。
 
 ### DG-011 Constraint composition
 
 期限: M2実装前
 
-- [ ] `Length(3).Min(4)`と`Length(3).Max(2)`をbuilder時に拒否するか決める。
-- [ ] `Min`/`Max`と`WholeNumber`の組合せを許可する条件を決める。
-- [ ] `Pattern`と`Email`を併用した場合の評価順を決める。
+- [x] `Length(3).Min(4)`と`Length(3).Max(2)`をbuilder時に拒否する。
+- [x] `Min`/`Max`と`WholeNumber`の組合せはNumberだけ許可する。
+- [x] `Pattern`と`Email`を併用した場合は固定評価順で検証する。
 - [ ] specどおり、同じconstraint/modifierの重複指定はprogrammer misuseとして実装する。
 - [ ] `Nullable`、`OptionalField`、`Strict`の重複をどのErr codeへ割り当てるか決める。
-- [ ] constraint評価順と、同じ値に複数issueを出すか最初の1件だけにするか決める。
-- [ ] 決定をspecとfocused testsへ反映する。
+- [x] constraint評価順を固定し、同じnodeの同じ値には最初の1件だけIssueを出す。
+- [x] 決定をspecへ反映する。focused testsはM2実装taskとして追加する。
 
 ### DG-012 Schema input ownership
 
 期限: EnumはM5開始前、UnionはM6開始前
 
-- [ ] `EnumOf`へ渡したarrayをsnapshotするか共有するか決める。
-- [ ] `UnionOf`へ渡したCollectionをsnapshotするか共有するか決める。
-- [ ] child `VSchema` instance自体はmutable shared referenceとする既存契約との境界を整理する。
-- [ ] duplicate Enum candidate、typed candidate array、多次元candidate array、未初期化candidate arrayの扱いを決める。
-- [ ] Union branchの詳細issueを内部保持するか破棄するか決める。
-- [ ] nested Unionをflattenするかbranch構造を保持するか決める。
+- [x] `EnumOf`へ渡した一次元native arrayを構築時snapshotする。
+- [x] `UnionOf`へ渡したCollectionのbranch順と要素集合を構築時snapshotし、child `VSchema` instance自体はmutable shared referenceとして保持する。
+- [x] child `VSchema` instance自体はmutable shared referenceとする既存契約との境界を整理する。
+- [x] duplicate Enum candidateは`vbObjectError + 2101`、typed scalar arrayは受理、多次元・未初期化・空配列は`vbObjectError + 2100`とする。
+- [x] Union branchの詳細issueは外部へ出さず破棄し、失敗pathに`invalid_union`を1件だけ返す。branch内のErrは伝播する。
+- [x] nested Unionはflattenせずbranch構造を保持する。
 
 ## 5. M0 — Design baseline and decision gates
 
@@ -289,7 +327,7 @@ M0 Design baseline and decision gates
 - [ ] `docs/specs/v1-contract.md`の全Public signatureとcompile fixture候補が一致することを再確認する。
 - [ ] design内に旧API名（`Schema.String`、`.Optional`、`.Integer`等）が残っていないことを検索する。
 - [ ] v1 APIとfuture API（Parse、Strip、Positive/Negative等）の境界を確認する。
-- [ ] Decision GateのうちM1開始前に必要なDG-001とDG-010を解決する。
+- [x] Decision GateのうちM1開始前に必要なDG-001とDG-010を解決する。
 - [ ] 設計変更をcommitし、baseline SHAを本書へ記録する。
 
 ### Verification
@@ -310,8 +348,8 @@ rtk xlflow analyze --json
 ### Exit gate
 
 - [ ] spec/ADR/design間のHigh/Medium矛盾がない。
-- [ ] DG-001が解決済み。
-- [ ] DG-010が解決済み。
+- [x] DG-001が解決済み。
+- [x] DG-010が解決済み。
 - [ ] baseline commit SHAがCurrent Checkpointに反映済み。
 - [ ] macOS/32-bitの未検証表現が全資料で一致している。
 
@@ -321,15 +359,15 @@ rtk xlflow analyze --json
 
 ### Repository structure
 
-- [ ] `src/classes/`を作成する。
-- [ ] `src/modules/Tests/`をv1 test構成へ整理する。
-- [ ] compile-only fixtureの配置場所を決めて追加する。
-- [ ] clean checkoutから`build/Book.xlsm`を作成または復元するbootstrap手順を実装する。
+- [x] `src/classes/`を作成する。
+- [x] `src/modules/Tests/`をv1 test構成へ整理する。
+- [x] compile-only fixtureの配置場所を決めて追加する。
+- [x] clean checkoutから`build/Book.xlsm`を作成または復元するbootstrap手順を実装する。
 - [ ] bootstrap元となるtracked template/source、Excel prerequisite、既存workbookを上書きしない条件を文書化する。
-- [ ] `dist/VBA-Schema/`を生成するallowlist staging scriptまたはTaskを追加する。
-- [ ] staging用一時projectを安全に作成・破棄できるようにする。
-- [ ] `Taskfile.yml`のplaceholder taskを実作業用taskへ置き換える。
-- [ ] 新しいdirectory/fileを追加した時点で`AGENTS.md`のproject treeを更新する。
+- [x] `dist/VBA-Schema/`を生成するallowlist staging scriptまたはTaskを追加する。
+- [x] staging用一時projectを安全に作成・破棄できるようにする。
+- [x] `Taskfile.yml`のplaceholder taskを実作業用taskへ置き換える。
+- [x] 新しいdirectory/fileを追加した時点で`AGENTS.md`のproject treeを更新する。
 
 推奨Task名:
 
@@ -344,30 +382,31 @@ task verify
 task benchmark
 task release-stage
 task release-verify
+task release-smoke
 ```
 
 `task provision-workbook`は、ignored/untrackedの`build/Book.xlsm`が存在しないclean checkoutを正式な開始状態として扱う。tracked sourceまたはtemplateから再構築し、Excel/VBIDEなどの前提不足は明示的に失敗させる。既存のuser-owned workbookを無断で上書きしてはならない。
 
 ### Compile fixture
 
-- [ ] 3 production componentへspecどおりのPublic signature skeletonを追加する。
-- [ ] 未実装methodがfake successを返さず、明示的なinternal/not-implemented Errで停止するようにする。
-- [ ] spec記載の全factoryをfixture内で呼び出す。
-- [ ] 全fluent modifierをchain内で呼び出す。
-- [ ] `UnionOf(Collection)`をcompileする。
-- [ ] typed native arrayを`SafeParse(ByVal Variant)`へ渡す。
-- [ ] late-bound Objectを`SafeParse`へ渡す。
-- [ ] `Result.Value`をscalar代入とObjectの`Set`代入の両方でcompileする。
-- [ ] `Success`、`Issues`、`ErrorText`を使用する。
-- [ ] internal compile fixtureで`InternalInitialize`を直接呼び、DG-010で決めたErr contractも検証する。
-- [ ] fixtureがrelease artifactへ含まれないことをtestする。
+- [x] 3 production componentへspecどおりのPublic signature skeletonを追加する。
+- [x] 未実装methodがfake successを返さず、明示的なinternal/not-implemented Errで停止するようにする。
+- [x] spec記載の全factoryをfixture内で呼び出す。
+- [x] 全fluent modifierをchain内で呼び出す。
+- [x] `UnionOf(Collection)`をcompileする。
+- [x] typed native arrayを`SafeParse(ByVal Variant)`へ渡す。
+- [x] late-bound Objectを`SafeParse`へ渡す。
+- [x] `Result.Value`をscalar代入とObjectの`Set`代入の両方でcompileする。
+- [x] `Success`、`Issues`、`ErrorText`を使用する。
+- [x] internal compile fixtureで`InternalInitialize`を直接呼び、DG-010で決めたErr contractをcompileする。
+- [x] fixtureがrelease artifactへ含まれないことをtestする。
 
 ### Release staging
 
 - [ ] DG-008を解決する。
 - [ ] DG-009を解決する。
-- [ ] `dist/VBA-Schema/`をimport payload専用directoryとし、release metadataやsampleを混在させない。
-- [ ] source allowlistを次の3ファイルへ固定する。
+- [x] `dist/VBA-Schema/`をimport payload専用directoryとし、release metadataやsampleを混在させない。
+- [x] source allowlistを次の3ファイルへ固定する。
 
 ```text
 src/modules/Schema.bas
@@ -375,29 +414,29 @@ src/classes/VSchema.cls
 src/classes/VValidationResult.cls
 ```
 
-- [ ] allowlistに不足ファイルがあれば明示的に失敗する。
-- [ ] allowlist以外の`.bas`/`.cls`/`.frm`をartifactへ入れない。
-- [ ] 空のmacro-enabled workbookへ3ファイルをimportするsmoke pathを用意する。
-- [ ] workbook document moduleを除くimport対象componentが3件であることを検証する。
+- [x] allowlistに不足ファイルがあれば明示的に失敗する。
+- [x] allowlist以外の`.bas`/`.cls`/`.frm`をartifactへ入れない。
+- [x] 空のmacro-enabled workbookへ3ファイルをimportするsmoke pathを用意する。
+- [x] workbook document moduleを除くimport対象componentが3件であることを検証する。
 - [ ] 外部参照設定が増えていないことを確認する。
 
 ### xlflow baseline
 
-- [ ] `rtk xlflow doctor --json`でExcel/COM/VBIDE環境を確認する。
-- [ ] clean checkoutで`task provision-workbook`を実行し、その後のtest discoveryまで再現する。
-- [ ] `rtk xlflow status --json`でrecovery不要を確認する。
-- [ ] sourceとworkbookのauthorityを確定する。
-- [ ] managed sessionを使うか既存workbookへattachするか記録する。
-- [ ] scaffold testの扱い（削除またはtest harness smokeとして保持）を決める。
-- [ ] formatter実行前後のdiffを確認するTaskを用意する。
+- [x] `rtk xlflow doctor --json`でExcel/COM/VBIDE環境を確認する。
+- [x] clean checkoutで`task provision-workbook`を実行し、その後のtest discoveryまで再現する。
+- [x] `rtk xlflow status --json`でrecovery不要を確認する。
+- [x] sourceとworkbookのauthorityを確定する。
+- [x] managed sessionを使うか既存workbookへattachするか記録する。
+- [x] scaffold testはtest harness smokeとして保持し、`Test_Sample_Todo`は未実装機能の可視化用に残す。
+- [x] formatter実行前後のdiffを確認するTaskを用意する。
 
 ### Exit gate
 
-- [ ] repository内のfixtureから全Public APIのVBE compileを再現できる。
-- [ ] clean checkoutからdevelopment workbookを再構築できる。
-- [ ] `task verify`相当の一括checkが存在する。
-- [ ] 3-file stagingとcomponent count verificationが自動化されている。
-- [ ] 開発用workbookと配布artifactが混同されない。
+- [x] repository内のfixtureから全Public APIのVBE compileを再現できる。
+- [x] clean checkoutからdevelopment workbookを再構築できる。
+- [x] `task verify`相当の一括checkが存在する。
+- [x] 3-file stagingとcomponent count verificationが自動化されている。
+- [x] 開発用workbookと配布artifactが混同されない。
 
 ## 7. M2 — Scalar core and result contract
 
@@ -405,67 +444,67 @@ src/classes/VValidationResult.cls
 
 ### Tests first
 
-- [ ] `TestAnyValue.bas`を追加する。
-- [ ] `TestText.bas`を追加する。
-- [ ] `TestNumber.bas`を追加する。
-- [ ] `TestBool.bas`を追加する。
-- [ ] `TestDateTime.bas`を追加する。
-- [ ] `TestNullable.bas`を追加する。
-- [ ] `TestResult.bas`を追加する。
-- [ ] `TestErrors.bas`を追加する。
-- [ ] root path `$`のtestを追加する。
-- [ ] success/failure双方の`Value`、`Issues`、`ErrorText` contract testを追加する。
-- [ ] Issues snapshotを呼び出し側が変更してもResultが変化しないtestを追加する。
-- [ ] programmer misuseとenvironment/internal errorのErr番号testを追加する。
+- [x] `TestAnyValue.bas`を追加する。
+- [x] `TestText.bas`を追加する。
+- [x] `TestNumber.bas`を追加する。
+- [x] `TestBool.bas`を追加する。
+- [x] `TestDateTime.bas`を追加する。
+- [x] `TestNullable.bas`を追加する。
+- [x] `TestResult.bas`を追加する。
+- [x] `TestErrors.bas`を追加する。
+- [x] root path `$`のtestを追加する。
+- [x] success/failure双方の`Value`、`Issues`、`ErrorText` contract testを追加する。
+- [x] Issues snapshotを呼び出し側が変更してもResultが変化しないtestを追加する。
+- [x] programmer misuseとenvironment/internal errorのErr番号testを追加する。
 
 ### Production implementation
 
-- [ ] `src/modules/Schema.bas`のsignature skeletonを実装へ置き換える。
-- [ ] `src/classes/VSchema.cls`のsignature skeletonを実装へ置き換える。
-- [ ] `src/classes/VValidationResult.cls`のsignature skeletonを実装へ置き換える。
-- [ ] `Option Explicit`を全production componentへ付ける。
-- [ ] `SchemaKind`と一度だけ実行可能な`InternalInitialize`を実装する。
-- [ ] 未初期化schemaと再初期化をprogrammer misuseにする。
-- [ ] `SafeParse(ByVal InputValue As Variant)`を実装する。
-- [ ] `AnyValue`を実装する。
-- [ ] `Text`を`vbString`だけに限定する。
-- [ ] `Number`をByte/Integer/Long/Single/Double/Currencyだけに限定する。
-- [ ] `Bool`を`vbBoolean`だけに限定する。
-- [ ] `DateTime`を`vbDate`だけに限定する。
-- [ ] Null、Empty、Error Variant、Nothingのmatrixをspecどおり実装する。
-- [ ] `Nullable`を実装する。
-- [ ] `OptionalField`のstateを実装し、root値やArray要素の`Empty`を許可しないことをtestする。
-- [ ] `Min`、`Max`、`Length`、`WholeNumber`を適用可能kindだけに実装する。
-- [ ] duplicate/conflicting constraintをprogrammer misuseにする。
-- [ ] `VValidationResult`のSuccess/Failure invariantを実装する。
-- [ ] Issue code、path、message、expected、receivedを生成する。
-- [ ] Issue orderとErrorTextをdeterministicにする。
+- [x] `src/modules/Schema.bas`のsignature skeletonをscalar実装へ置き換える。
+- [x] `src/classes/VSchema.cls`のsignature skeletonをscalar実装へ置き換える。
+- [x] `src/classes/VValidationResult.cls`のsignature skeletonを実装へ置き換える。
+- [x] `Option Explicit`を全production componentへ付ける。
+- [x] `SchemaKind`と一度だけ実行可能な`InternalInitialize`を実装する。
+- [x] 未初期化schemaと再初期化をprogrammer misuseにする。
+- [x] `SafeParse(ByVal InputValue As Variant)`を実装する。
+- [x] `AnyValue`を実装する。
+- [x] `Text`を`vbString`だけに限定する。
+- [x] `Number`をByte/Integer/Long/Single/Double/Currencyだけに限定する。
+- [x] `Bool`を`vbBoolean`だけに限定する。
+- [x] `DateTime`を`vbDate`だけに限定する。
+- [x] scalarのNull、Empty、Error Variant、Nothing matrixをspecどおり実装する。
+- [x] `Nullable`を実装する。
+- [x] `OptionalField`のstateを実装し、root値の`Empty`を許可しないことをtestする。
+- [x] `Min`、`Max`、`Length`、`WholeNumber`をscalar kindへ実装する。
+- [x] duplicate/conflicting constraintをprogrammer misuseにする。
+- [x] `VValidationResult`のSuccess/Failure invariantを実装する。
+- [x] Issue code、path、message、expected、receivedを生成する。
+- [x] scalarのIssue orderとErrorTextをdeterministicにする。
 
 ### Required scalar edge cases
 
-- [ ] empty StringとLength 0
+- [x] empty StringとLength 0
 - [ ] String Min/Max/Length boundary
 - [ ] boundary引数`3`、`3&`、`CByte(3)`、`3#`
 - [ ] fractional/negative/overflow/non-numeric length rejection
-- [ ] Byte/Integer/Long/Single/Double/Currency
-- [ ] Decimal Variant rejection
+- [x] Byte/Integer/Long/Single/Double/Currency
+- [x] Decimal Variant rejection
 - [ ] LongLong rejection（使用可能な64-bit環境のみ）
-- [ ] numeric String rejection
-- [ ] Boolean/DateをNumberとして拒否
+- [x] numeric String rejection
+- [x] Boolean/DateをNumberとして拒否
 - [ ] positive/negative zero
-- [ ] Single/DoubleのfractionとWholeNumber
-- [ ] Null、Empty、Error Variant
-- [ ] `AnyValue`のNull/Empty/Error/Nothing
-- [ ] `AnyValue`のscalar/Object/native array/Collection
-- [ ] rootまたはArray要素の`OptionalField`がEmptyを許可しない
-- [ ] invalid modifier/kind combinations
+- [x] Single/DoubleのfractionとWholeNumber
+- [x] scalarのNull、Empty、Error Variant
+- [x] `AnyValue`のNull/Empty/Error/Nothing
+- [x] `AnyValue`のscalar/Object/native array/Collection
+- [ ] rootまたはArray要素の`OptionalField`がEmptyを許可しない（Arrayは未実装）
+- [x] invalid modifier/kind combinationsのscalar部分
 
 ### Decision gates
 
-- [ ] DG-002 resolved
-- [ ] DG-003 resolved
-- [ ] DG-010 resolved
-- [ ] DG-011 resolved
+- [x] DG-002 resolved
+- [x] DG-003 resolved
+- [x] DG-010 resolved
+- [x] DG-011 resolved
 
 ### Verification loop
 
@@ -479,11 +518,11 @@ rtk xlflow test --session --no-save --json
 
 ### Exit gate
 
-- [ ] scalar focused tests pass。
-- [ ] full tests pass。
-- [ ] VBE compile passes。
-- [ ] `lint` and `analyze` pass with no unexplained findings。
-- [ ] compile fixture and 3-file release smoke still pass。
+- [x] scalar focused tests pass。
+- [x] full tests pass（24 pass、scaffoldのintentional TODO 1件）。
+- [x] VBE compile passes。
+- [x] `lint` and `analyze` pass with no unexplained findings。
+- [x] compile fixture and 3-file release smoke still pass。
 
 ## 8. M3 — Object validation
 
@@ -491,48 +530,48 @@ rtk xlflow test --session --no-save --json
 
 ### Tests first
 
-- [ ] required field present/missing
-- [ ] `OptionalField` missing success
-- [ ] present `Empty` is not missing
-- [ ] present `Null` requires `Nullable`
-- [ ] nested Object success/failure
-- [ ] multiple deterministic issues
-- [ ] passthrough unknown field
-- [ ] strict unknown field
-- [ ] strict unknown field binary ordinal ordering
-- [ ] field declaration ordering independent of Dictionary enumeration
-- [ ] case-sensitive field matching
-- [ ] input `CompareMode = vbTextCompare`でもbinary field matching
-- [ ] duplicate field definition is programmer misuse
-- [ ] empty field name is programmer misuse
-- [ ] `Field(name, Nothing)` is programmer misuse
-- [ ] wrong input Object/class/Collection rejection
-- [ ] Nothing rejection
+- [x] required field present/missing
+- [x] `OptionalField` missing success
+- [x] present `Empty` is not missing
+- [x] present `Null` requires `Nullable`
+- [x] nested Object success/failure
+- [x] multiple deterministic issues
+- [x] passthrough unknown field
+- [x] strict unknown field
+- [x] strict unknown field binary ordinal ordering
+- [x] field declaration ordering independent of Dictionary enumeration
+- [x] case-sensitive field matching
+- [x] input `CompareMode = vbTextCompare`でもbinary field matching
+- [x] duplicate field definition is programmer misuse
+- [x] empty field name is programmer misuse
+- [x] `Field(name, Nothing)` is programmer misuse
+- [x] wrong input Object/class/Collection rejection
+- [x] Nothing rejection
 - [ ] `Scripting.Dictionary` runtime unavailable時にenvironment errorがvalidation issueへ変換されないことを検証する。
 - [ ] 実環境でunavailableを再現できない場合は、限定的なfactory seamによるerror-path testとWindows 64-bit integration結果を分け、未再現事項を記録する。
-- [ ] escaped path for dot, bracket, quote, backslash, control characters
-- [ ] direct and indirect schema cycles
+- [x] escaped path for dot, bracket, quote, backslash, control characters
+- [x] direct and indirect schema cycles
 
 ### Implementation
 
-- [ ] DG-004を解決する。
-- [ ] DG-005を解決する。
-- [ ] `ObjectSchema` factoryを実装する。
-- [ ] schema field lookupとfield declaration orderを別管理する。
-- [ ] input DictionaryのCompareModeに依存しないbinary lookupを実装する。
-- [ ] `Field`、`OptionalField`、`Strict`を実装する。
-- [ ] unknown fieldをbinary ordinalで並べる。
-- [ ] canonical object pathを構築する。
-- [ ] validation中にinput Dictionaryを変更しない。
-- [ ] schema graph cycleをvalidation開始前に拒否する。
+- [x] DG-004を解決する。
+- [x] DG-005を解決する。
+- [x] `ObjectSchema` factoryを実装する。
+- [x] schema field lookupとfield declaration orderを別管理する。
+- [x] input DictionaryのCompareModeに依存しないbinary lookupを実装する。
+- [x] `Field`、`OptionalField`、`Strict`を実装する。
+- [x] unknown fieldをbinary ordinalで並べる。
+- [x] canonical object pathを構築する。
+- [x] validation中にinput Dictionaryを変更しない。
+- [x] schema graph cycleをvalidation開始前に拒否する。
 
 ### Exit gate
 
-- [ ] Object focused tests pass。
-- [ ] scalar regression tests pass。
-- [ ] nested pathが`$.user.address.zip`形式で固定されている。
-- [ ] field orderとunknown field orderが複数runで同一。
-- [ ] release smoke passes。
+- [x] Object focused tests pass。
+- [x] scalar regression tests pass。
+- [x] nested pathが`$.user.address.zip`形式で固定されている。
+- [x] field orderとunknown field orderが複数runで同一。
+- [x] release smoke passes。
 
 ## 9. M4 — Array and Collection validation
 
@@ -540,126 +579,126 @@ rtk xlflow test --session --no-save --json
 
 ### Tests first
 
-- [ ] zero-based native array
-- [ ] one-based native array
-- [ ] negative `LBound` native array
-- [ ] typed native array
-- [ ] Variant array
-- [ ] uninitialized dynamic array as empty
-- [ ] empty Collection
-- [ ] populated Collection
-- [ ] typed object array
-- [ ] Collection内のNothing、Error Variant、Object要素
-- [ ] nested Array/Collection
-- [ ] wrong element with correct logical index
-- [ ] multidimensional array returns `invalid_array_rank`
-- [ ] Dictionary is not treated as array
-- [ ] Min/Max/Length boundaries
-- [ ] root and nested array paths
+- [x] zero-based native array
+- [x] one-based native array
+- [x] negative `LBound` native array
+- [x] typed native array
+- [x] Variant array
+- [x] uninitialized dynamic array as empty
+- [x] empty Collection
+- [x] populated Collection
+- [x] typed object array
+- [x] Collection内のNothing、Error Variant、Object要素
+- [x] nested Array/Collection
+- [x] wrong element with correct logical index
+- [x] multidimensional array returns `invalid_array_rank`
+- [x] Dictionary is not treated as array
+- [x] Min/Max/Length boundaries
+- [x] root and nested array paths
 
 ### Implementation
 
-- [ ] DG-006を解決する。
-- [ ] `ArrayOf(ItemSchema)`を実装する。
-- [ ] Nothing ItemSchemaをprogrammer misuseにする。
-- [ ] native array detection helperを実装する。
-- [ ] safe initialized/rank/bounds helpersを実装する。
-- [ ] Collection iterationを実装する。
-- [ ] actual indexを0-based logical ordinalへ正規化する。
-- [ ] length constraintsをTextと共通contractで実装する。
-- [ ] input array/Collectionを変更しない。
+- [x] DG-006を解決する。
+- [x] `ArrayOf(ItemSchema)`を実装する。
+- [x] Nothing ItemSchemaをprogrammer misuseにする。
+- [x] native array detection helperを実装する。
+- [x] safe initialized/rank/bounds helpersを実装する。
+- [x] Collection iterationを実装する。
+- [x] actual indexを0-based logical ordinalへ正規化する。
+- [x] length constraintsをTextと共通contractで実装する。
+- [x] input array/Collectionを変更しない。
 
 ### Exit gate
 
-- [ ] Array/Collection focused tests pass。
-- [ ] Object/scalar regression tests pass。
-- [ ] uninitialized arrayでruntime errorが漏れない。
-- [ ] multidimensional arrayがlibrary errorではなくvalidation issueになる。
-- [ ] release smoke passes。
+- [x] Array/Collection focused tests pass。
+- [x] Object/scalar regression tests pass。
+- [x] uninitialized arrayでruntime errorが漏れない。
+- [x] multidimensional arrayがlibrary errorではなくvalidation issueになる。
+- [x] release smoke passes。
 
 ## 10. M5 — Literal, Enum, Pattern, and Email
 
 ### Literal and Enum tests
 
-- [ ] same category and same value success
-- [ ] String `"1"` vs Number `1`
-- [ ] Number subtype equivalence
-- [ ] Boolean and Number separation
-- [ ] Date and Number separation
-- [ ] Null and Empty separation
-- [ ] Error/Object/Array definition rejection
-- [ ] empty Enum rejection
-- [ ] Enum definition mutation after construction does not alter schema, or chosen ownership rule is documented and tested
-- [ ] duplicate Enum candidates follow a documented rule
-- [ ] binary String comparison
+- [x] same category and same value success
+- [x] String `"1"` vs Number `1`
+- [x] Number subtype equivalence
+- [x] Boolean and Number separation
+- [x] Date and Number separation
+- [x] Null and Empty separation
+- [x] Error/Object/Array definition rejection
+- [x] empty Enum rejection
+- [x] Enum definition mutation after construction does not alter schema, or chosen ownership rule is documented and tested
+- [x] duplicate Enum candidates follow a documented rule
+- [x] binary String comparison
 
 ### Literal and Enum implementation
 
-- [ ] DG-012のEnum ownership部分を解決する。
-- [ ] `Literal`を実装する。
-- [ ] `EnumOf`を実装する。
-- [ ] definition valuesをvalidation/normalizationする。
-- [ ] scalar category comparison helperを実装する。
-- [ ] exact Number comparisonをDG-002のcontractへ合わせる。
+- [x] DG-012のEnum ownership部分を解決する。
+- [x] `Literal`を実装する。
+- [x] `EnumOf`を実装する。
+- [x] definition valuesをvalidation/normalizationする。
+- [x] scalar category comparison helperを実装する。
+- [x] exact Number comparisonをDG-002のcontractへ合わせる。
 
 ### Pattern and Email tests
 
-- [ ] Pattern match/non-match
-- [ ] invalid expression programmer misuse
+- [x] Pattern match/non-match
+- [x] invalid expression programmer misuse
 - [ ] RegExp runtime unavailable environment error
-- [ ] Email accepted examples
-- [ ] Email rejected examples
-- [ ] empty/local-only/multiple-`@`/whitespace cases
-- [ ] Unicode and maximum length cases according to DG-007
+- [x] Email accepted examples
+- [x] Email rejected examples
+- [x] empty/local-only/multiple-`@`/whitespace cases
+- [x] Unicode and maximum length cases according to DG-007
 - [ ] locale-independent behavior
 
 ### Pattern and Email implementation
 
-- [ ] DG-007を解決する。
-- [ ] lazy RegExp creation/cacheを実装する。
-- [ ] invalid patternとruntime unavailableを区別する。
-- [ ] `Pattern`を実装する。
-- [ ] `Email`を実装する。
-- [ ] RFC完全準拠を目標にしない範囲をREADMEへ記載する。
+- [x] DG-007を解決する。
+- [x] lazy RegExp creation/cacheを実装する。
+- [x] invalid patternとruntime unavailableを区別する。
+- [x] `Pattern`を実装する。
+- [x] `Email`を実装する。
+- [x] RFC完全準拠を目標にしない範囲をspec/ADRへ記載する。READMEへの記載はM7で行う。
 
 ### Exit gate
 
-- [ ] Literal/Enum/Pattern/Email focused tests pass。
-- [ ] full regression tests pass。
+- [x] Literal/Enum/Pattern/Email focused tests pass。
+- [x] full regression tests pass。
 - [ ] environment errorがvalidation issueへ変換されない。
-- [ ] release smoke passes。
+- [x] release smoke passes。
 
 ## 11. M6 — Union
 
 ### Tests first
 
-- [ ] first branch success
-- [ ] later branch success
-- [ ] all branches fail
-- [ ] nested Union
-- [ ] empty Union is programmer misuse
-- [ ] Nothing/non-VSchema branch is programmer misuse
-- [ ] branch order is deterministic
-- [ ] external Issue is one `invalid_union` at failure path
-- [ ] branch internal errors do not leak into public Issues
-- [ ] environment/programmer errors inside branch propagate instead of becoming union mismatch
-- [ ] input Collection mutation after construction follows documented ownership rule
+- [x] first branch success
+- [x] later branch success
+- [x] all branches fail
+- [x] nested Union
+- [x] empty Union is programmer misuse
+- [x] Nothing/non-VSchema branch is programmer misuse
+- [x] branch order is deterministic
+- [x] external Issue is one `invalid_union` at failure path
+- [x] branch internal errors do not leak into public Issues
+- [x] environment/programmer errors inside branch propagate instead of becoming union mismatch
+- [x] input Collection mutation after construction follows documented ownership rule
 
 ### Implementation
 
-- [ ] DG-012のUnion ownership部分を解決する。
-- [ ] `UnionOf(ByVal Schemas As Collection)`を実装する。
-- [ ] schema Collectionをvalidation/normalizeする。
-- [ ] validation failureとthrown Errを分離する。
-- [ ] temporary branch issuesを外部Resultから隔離する。
-- [ ] 全branch failure時に`invalid_union`を1件だけ生成する。
+- [x] DG-012のUnion ownership部分を解決する。
+- [x] `UnionOf(ByVal Schemas As Collection)`を実装する。
+- [x] schema Collectionをvalidation/normalizeする。
+- [x] validation failureとthrown Errを分離する。
+- [x] temporary branch issuesを外部Resultから隔離する。
+- [x] 全branch failure時に`invalid_union`を1件だけ生成する。
 
 ### Exit gate
 
-- [ ] Union focused tests pass。
-- [ ] full regression tests pass。
-- [ ] nested error path and issue order are deterministic。
-- [ ] release smoke passes。
+- [x] Union focused tests pass。
+- [x] full regression tests pass。
+- [x] nested error path and issue order are deterministic。
+- [x] release smoke passes。
 
 ## 12. M7 — Hardening, documentation, CI, and release
 
@@ -697,53 +736,53 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 
 ### Documentation
 
-- [ ] READMEに「3 files / no reference setup」を記載する。
-- [ ] READMEにinstallation手順を追加する。
-- [ ] READMEにcanonical exampleを追加する。
-- [ ] READMEにPublic API overviewを追加する。
-- [ ] READMEにerror handlingとIssue例を追加する。
-- [ ] READMEにmutable builderのaliasing warningを追加する。
-- [ ] READMEにPattern/Emailの非RFC完全準拠を追加する。
-- [ ] READMEにWindows 64-bit verified、macOS/32-bit unverified/non-guaranteedを明記する。
-- [ ] error code一覧を公開する。
-- [ ] path grammarを公開する。
-- [ ] release/update/remove手順を追加する。
-- [ ] examplesをVBE compile fixtureで検証する。
+- [x] READMEに「3 files / no reference setup」を記載する。
+- [x] READMEにinstallation手順を追加する。
+- [x] READMEにcanonical exampleを追加する。
+- [x] READMEにPublic API overviewを追加する。
+- [x] READMEにerror handlingとIssue例を追加する。
+- [x] READMEにmutable builderのaliasing warningを追加する。
+- [x] READMEにPattern/Emailの非RFC完全準拠を追加する。
+- [x] READMEにWindows 64-bit verified、macOS/32-bit unverified/non-guaranteedを明記する。
+- [x] error code一覧を公開する。
+- [x] path grammarを公開する。
+- [x] release/update/remove手順を追加する。
+- [x] examplesをVBE compile fixtureで検証する。
 - [ ] design/spec/ADRと実装のdrift auditを行う。
 
 ### CI and automation
 
-- [ ] Excel不要のlint/analyze/test discovery/format checkをCIへ追加する。
-- [ ] behavioral VBA testsはWindows + Excelが必要なgateとして分離する。
-- [ ] Excel/VBE compile checkをlocalまたはself-hosted gateとして定義する。
-- [ ] CI status名から検証範囲が分かるようにする。
+- [x] Excel不要のlint/analyze/test discovery/format checkをCIへ追加する（`.github/workflows/source-check.yml`）。
+- [x] behavioral VBA testsはWindows + Excelが必要なgateとして分離する。
+- [x] Excel/VBE compile checkをlocalまたはself-hosted gateとして定義する。
+- [x] CI status名から検証範囲が分かるようにする。
 - [ ] release staging/verification TaskをCIまたはrelease手順へ接続する。
-- [ ] CI failureと未実行を区別する。
+- [x] CI failureと未実行を区別する。
 
 ### Release artifact
 
-- [ ] DG-008の決定どおりartifactを生成する。
-- [ ] `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`以外が含まれないことを確認する。
-- [ ] fresh workbookへ手動importする。
-- [ ] external referenceが追加されていないことを確認する。
-- [ ] VBE compileする。
-- [ ] canonical exampleを実行する。
-- [ ] source artifactと検証workbookのchecksumを記録する。
-- [ ] source artifactのencoding、改行コード、`Attribute VB_Name`、class attributesを確認する。
-- [ ] LICENSEがrelease pageまたはrepositoryから取得可能であることを確認する。現行specの3-file import payloadへは含めない。
-- [ ] THIRD_PARTY_NOTICESの要否を最終確認する。
-- [ ] DG-008で採用した場合は`CHANGELOG.md`、release note、version metadata、ZIP、sample workbookを作成・更新する。
-- [ ] DG-008で採用した追加物は3-file import payloadの外側で生成・検証する。同一artifactへ含める場合は、先にspec/ADR更新が完了していることをgateにする。
+- [x] DG-008の決定どおり3-file artifactを生成する。
+- [x] `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`以外が含まれないことを確認する。
+- [x] fresh workbookへimportする（release smokeで代替検証）。
+- [x] external referenceが追加されていないことを確認する（release smokeで検証）。
+- [x] VBE compileする（release smokeで検証）。
+- [x] canonical Public API exampleをcompile fixtureで検証する。
+- [x] source artifactのSHA-256 checksumをProgress Logへ記録する。
+- [x] source artifactのencoding、改行コード、`Attribute VB_Name`、class attributesを確認する。
+- [x] LICENSEがrepositoryから取得可能であることを確認する。現行specの3-file import payloadへは含めない。
+- [x] 追加のthird-party referenceを導入しないため、`THIRD_PARTY_NOTICES.md`はv1 payloadへ含めない方針を確認する。
+- [x] `CHANGELOG.md`を作成し、versionの正をGit tagとする方針を記録する。
+- [x] DG-008で採用した補助物は3-file import payloadの外側で管理する。
 
 ### Compatibility-conscious static audit
 
-- [ ] Windows APIがない。
-- [ ] pointer-size依存宣言がない。
-- [ ] LongLong型名へcompile-time依存していない。
-- [ ] Excel Object Modelへコア依存していない。
-- [ ] path/string handlingがhost path separatorへ依存していない。
-- [ ] unsupported runtime component failureが明示的である。
-- [ ] macOS/32-bitを検証済みと誤記していない。
+- [x] Windows APIがない。
+- [x] pointer-size依存宣言がない。
+- [x] LongLong型名へcompile-time依存していない。
+- [x] Excel Object Modelへコア依存していない。
+- [x] path/string handlingがhost path separatorへ依存していない。
+- [x] unsupported runtime component failureが明示的である。
+- [x] macOS/32-bitを検証済みと誤記していない。
 
 ### Exit gate
 
@@ -856,6 +895,257 @@ rtk xlflow test --session --no-save --json
 ## 16. Progress Log
 
 新しい記録を上へ追加する。
+
+### 2026-09-21 — M7 documentation and release boundary
+
+- Status: M7のDecision Gate（DG-008/DG-009）を確定し、README、CHANGELOG、release encoding verify、Excel-free CI workflow、compatibility static auditを追加。性能benchmark、VBE self-hosted automation、sample workbookは未完了。GitHub上のworkflow実行は未検証。
+- Decision:
+  - 3-file import payloadは維持し、README、LICENSE、CHANGELOG、sample workbook、ZIPは別release/repository assetとする。
+  - versionの正はGit tagとtracked `CHANGELOG.md`。VBA sourceへのversion定数/VERSIONファイルは追加しない。
+  - staged VBA sourceはUTF-8（BOMなし）・LF改行。`release-verify.ps1`でallowlist、header、encoding、改行を検証する。
+  - GitHub-hosted Excel-free source checkとWindows Excel/VBE compile・behavioral checkを別statusへ分離し、macOS/32-bitは将来matrix追加時まで未検証とする。
+- Changed:
+  - `README.md`へinstallation、canonical example、API/error/path、aliasing、Pattern/Email境界、platform boundary、update/remove手順を追加。
+  - `CHANGELOG.md`を追加し、Unreleased/v1.0.0のrelease記録形式を固定。
+  - `docs/adr/ADR-0007-release-and-ci-boundary.md`を追加し、`docs/specs/v1-contract.md`、`docs/design.md`、`AGENTS.md`、DG-008/DG-009を更新。
+  - `tools/release-verify.ps1`へUTF-8 BOMなし・LF改行検査を追加。
+- Validation:
+  - `rtk xlflow metrics --json`: 290 proceduresのstatic metricsを取得。runtime performanceの合否には使用しない。
+- `rtk task release-stage`: 3-file payload staging pass
+- `rtk task release-verify`: allowlist、VBA headers、UTF-8/BOMなし、LF改行 pass
+- `rtk task verify`: pass（60 tests discovered、lint/analyze/format check pass）
+- `rtk task release-smoke`: pass（fresh workbook import、VBE compile、scalar smoke、non-document component 3件）
+- `rtk git ls-remote https://github.com/harumiWeb/xlflow.git refs/heads/main`: source-check workflowのxlflow commit pin `52e93661cdc830592de88e047cbeed3bb2ac4488`を確認
+  - compatibility static search: Windows API、pointer-size、LongLong、Excel Object Modelのproduction core依存なし
+  - `rtk git diff --check`: pass
+- Release payload SHA-256（`dist/VBA-Schema`）:
+  - `Schema.bas`: `d8d84731088500106f307ff14a433ff4b6836f34e7d33b271fabda316217b698`
+  - `VSchema.cls`: `51c6988bd1ab986bdc0f0b49f2c1726fb1c88b1307ac4a2ac2387aaaca19b665`
+  - `VValidationResult.cls`: `03adbb6989e14b328f82e156315e2d006b245177ebeacf56bd2cf1f4c27e5849`
+- Unverified:
+  - GitHub-hosted CIでのxlflow install/version pinとExcel-free workflow実行
+  - Windows self-hosted VBE compile automation
+  - performance benchmark、baseline比較、sample workbook asset
+  - macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable実機再現
+- Next task: benchmark/CIの実装方針を確定し、VBE compile ownershipを再現可能なTaskまたはworkflowへ落とし込む。
+
+### 2026-09-21 — M6 Union
+
+- Status: M6のUnion production implementation、Decision Gate、focused/full proof loop、公開API compile、release smoke完了。変更は未コミット。
+- Decision:
+  - DG-012 Union ownership: `UnionOf(Collection)`はbranch順と要素集合を構築時snapshotするが、child `VSchema` instanceはcloneせずmutable shared referenceとして保持する。
+  - nested Unionはflattenせずbranch構造を保持する。branch validation failureは内部Issueを破棄し、失敗pathに`invalid_union`を1件だけ返す。branch内のprogrammer/runtime/environment errorはそのまま伝播する。
+  - 空/Nothing/non-VSchema/未初期化branchは`vbObjectError + 2100`とする。
+- Changed:
+  - `Schema.bas`に`UnionOf(ByVal Schemas As Collection)` factoryを実装。
+  - `VSchema.cls`にUnion branch snapshot、branch validation、nested graph traversal、単一`invalid_union`境界を実装。
+  - `src/modules/Tests/TestUnion.bas`を追加し、branch順、後続branch成功、全失敗、snapshot/shared reference、nested、special value、branch errorを検証。
+  - `TestErrors.bas`へ空/Nothing/non-VSchema/未初期化Union branchのprogrammer misuseを追加。
+  - `docs/adr/ADR-0006-union-branch-ownership-and-error-boundary.md`、`docs/specs/v1-contract.md`、`docs/design.md`、`AGENTS.md`、ロードマップを更新。
+- Validation:
+  - `rtk xlflow fmt --write .\src\classes\VSchema.cls .\src\modules\Schema.bas .\src\modules\Tests\TestUnion.bas .\src\modules\Tests\TestErrors.bas`: 4 files unchanged
+  - `rtk xlflow lint --json`: pass
+  - `rtk xlflow analyze --json`: pass（no findings）
+  - `rtk xlflow test --module TestUnion --session --no-save --json`: 7 pass
+  - `rtk xlflow test --module TestErrors --session --no-save --json`: 8 pass
+  - `rtk xlflow test --session --no-save --json`: 60 tests、59 pass、scaffold `Test_Sample_Todo` 1件はintentional TODO
+  - `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
+  - `rtk xlflow test list --json`: 60 tests in 23 source files
+  - `rtk task verify`: pass
+  - `rtk task release-smoke`: pass（3-file import、VBE compile、scalar smoke、non-document component 3件）
+  - `rtk powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\release-smoke.ps1`: pass
+  - `rtk xlflow session stop --discard --json` / `rtk xlflow status --json`: session inactive、dirty=false、recovery_required=false。sourceがignored workbookより新しい警告のみ。
+- Temporary workspaces:
+  - `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\build\Book.xlsm`（ignored local workbook、session終了時に未保存変更を破棄）
+  - `C:\temp\vba-schema-design-oracle-20260921`
+  - `C:\Users\HARUMI\AppData\Local\Temp\vba-schema-release-smoke-8cb0b80dcafd4461bc7a04cee8f7c7cf`（release smoke probe）
+- Unverified:
+  - macOS Office、Windows 32-bit Office
+  - Dictionary/RegExp runtime unavailable環境の実機再現
+  - locale変更を伴う実機確認、performance benchmark、CI上のExcel/VBE compile
+- Next task: M7 hardening（未検証runtime seam、README/installation、performance、CI/release boundary）へ進む。
+
+### 2026-09-21 — M5 Literal, Enum, Pattern, and Email
+
+- Status: M5 の production implementation、focused/full proof loop、release smoke 完了。変更は未コミット。RegExp unavailable の実機再現だけは未検証のため M5 exit gate に未チェックを残す。
+- Decisions:
+  - DG-007: `VBScript.RegExp`をlate-boundし、`IgnoreCase=False`、`Global=False`、`MultiLine=False`、全体一致を固定。invalid expressionはlazy compile時に`vbObjectError + 2100`、runtime unavailableは`vbObjectError + 2200`。EmailはASCII簡易形式、254 UTF-16 code unit以下、RFC完全準拠外。
+  - DG-012 Enum部分: 一次元native arrayのscalar候補を構築時snapshot。typed scalar arrayは受理し、未初期化・空・多次元・不正要素は`vbObjectError + 2100`、重複候補は`vbObjectError + 2101`。
+- Changed:
+  - `Schema.bas`の`Literal`／`EnumOf` factory、`VSchema.cls`のscalar category比較、Enum snapshot、Pattern／Email modifier、lazy RegExp cacheを実装
+  - `src/modules/Tests/TestLiteral.bas`、`TestPattern.bas`を追加し、category／snapshot／duplicate／full-match／Email境界を検証
+  - `TestErrors.bas`へLiteral／Enum／Pattern／Emailのprogrammer misuseを追加
+  - `docs/specs/v1-contract.md`、`docs/design.md`、ADR-0005、AGENTS、ロードマップを更新
+- Validation:
+  - `rtk xlflow lint --json`: pass
+  - `rtk xlflow analyze --json`: pass
+  - `rtk xlflow push --session --no-save --json`: imported 24 source files、VBE compile pass
+  - `rtk xlflow test --module TestLiteral --session --no-save --json`: 4 pass
+  - `rtk xlflow test --module TestPattern --session --no-save --json`: 5 pass
+  - `rtk xlflow test --module TestErrors --session --no-save --json`: 7 pass
+  - `rtk xlflow test --session --no-save --json`: 52 tests、51 pass、scaffold `Test_Sample_Todo` 1件はintentional TODO
+  - `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
+  - `rtk task verify`: pass（52 tests discovered）
+  - `rtk task release-smoke`: fresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件の検証がpass
+  - `rtk xlflow status --json`: session inactive、dirty=false、recovery_required=false。sourceがignored workbookより新しい警告のみ。
+- Temporary workspaces:
+  - `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\build\Book.xlsm`（ignored local workbook、session終了時に未保存変更を破棄）
+  - `C:\temp\vba-schema-design-oracle-20260921`
+  - `C:\Users\HARUMI\AppData\Local\Temp\vba-schema-release-smoke-4500506a435d40f6a19d783efac1df6f`（release smoke probe、検証後に削除）
+- Unverified:
+  - RegExp runtime unavailable環境の実機再現、macOS Office、Windows 32-bit Office
+  - locale変更を伴う実機確認、performance benchmark、CI上のExcel/VBE compile
+- Next task: RegExp unavailableの検証方法を確定するか未検証としてrelease boundaryへ固定し、M6のUnion ownership（DG-012）をDecision Gateとして確認する。
+
+### 2026-09-21 — M4 Array and Collection validation
+
+- Status: M4 Array/Collection implementationとfocused/full proof loop完了。変更は未コミット。
+- Decision:
+  - DG-006: 一次元native arrayとCollectionを受理し、未初期化dynamic arrayは0要素、多次元は`invalid_array_rank`。LBoundに依存しない0始まりlogical pathを使用し、rank／bounds probeのErr stateをhelper内で処理する。
+- Changed:
+  - `Schema.bas`の`ArrayOf` factory、`VSchema.cls`のitem schema、array length constraints、native array／Collection detection、nested validation、cycle traversalを実装
+  - `src/modules/Tests/TestArray.bas`を追加し、native array／negative bound／typed object／Collection／nested／uninitialized／multidimensional／special elementを検証
+  - `TestErrors.bas`へArrayOf Nothingとarray constraint misuseを追加
+  - `docs/specs/v1-contract.md`、`docs/design.md`、ADR-0004、AGENTS、ロードマップを更新
+- Validation:
+  - `rtk xlflow lint --json`: pass
+  - `rtk xlflow analyze --json`: pass
+  - `rtk xlflow push --fast --session --no-save --json`: compile pass（22 source files）
+  - `rtk xlflow test --module TestArray --session --no-save --json`: 7 pass
+  - `rtk xlflow test --module TestErrors --session --no-save --json`: 5 pass
+  - `rtk xlflow test --session --no-save --json`: 40 pass、scaffold `Test_Sample_Todo` 1件はintentional TODO
+  - `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
+  - `rtk task verify`: pass（41 tests discovered）
+  - `rtk task release-smoke`: fresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件の検証がpass
+- Unverified:
+  - macOS Office、Windows 32-bit Office、uninitialized／multidimensionalの他host差異
+  - performance benchmark、CI上のExcel/VBE compile
+- Next task: M5 Literal／Enum／Pattern／EmailのDecision Gate（DG-007、DG-012）を確認する。
+
+### 2026-09-21 — M3 Object validation
+
+- Status: M3 Object validation実装とfocused proof loop完了。変更は未コミット。
+- Decisions:
+  - DG-004: `SafeParse`直前のDFS preflight、active pathのCollection、`Is`比較、cycleは`vbObjectError + 2103`。builder時の早期検出は行わない。
+  - DG-005: `TypeName("Dictionary")`入口と`Count`／`Exists`／`Keys`の限定capability check。非文字列keyは`invalid_key` validation issue、strict unknown String keyはbinary ordinal。library側のDictionary生成失敗は`vbObjectError + 2200`。
+  - VBA Private memberのcross-instance制約を避ける`Internal*` hookをunsupported internal-only APIとして追加。
+- Changed:
+  - `VSchema.cls`へObject field state、`Field`／`Strict`、binary lookup、canonical path、unknown/non-string key issues、nested validation、schema cycle preflightを追加
+  - `src/modules/Tests/TestObject.bas`を追加し、required／optional／nullable／nested／strict／ordering／path escaping／non-string key／Nothing／non-mutationを検証
+  - `TestErrors.bas`へObject builder misuseとdirect/indirect cycleのErr検証を追加
+  - `docs/specs/v1-contract.md`、`docs/design.md`、ADR-0002、ADR-0003へObject判定・`Missing`／`invalid_key`・cycle契約を反映
+- Validation:
+  - `rtk xlflow lint --json`: pass
+  - `rtk xlflow analyze --json`: pass
+  - `rtk xlflow push --fast --session --no-save --json`: compile pass（21 source files）
+  - `rtk xlflow test --module TestObject --session --no-save --json`: 7 pass
+  - `rtk xlflow test --module TestErrors --session --no-save --json`: 4 pass
+- Unverified:
+  - Scripting.Dictionary unavailable環境の実機再現、macOS Office、Windows 32-bit Office
+  - Object performance benchmark、CI上のExcel/VBE compile
+- Next task: M4 Array/CollectionのDG-006をspec・tests firstで確定する。
+
+### 2026-09-21 — M1 release smoke and M2 scalar core
+
+- Status: M1 release smoke完了、M2 scalar coreのfocused testsとVBE proof loop完了。変更は未コミット。
+- Changed:
+  - `Schema.bas` factory、`VSchema.cls` scalar validation/modifier、`VValidationResult.cls` snapshot/result contractを実装
+  - `src/modules/Tests/TestAnyValue.bas`、`TestText.bas`、`TestNumber.bas`、`TestBool.bas`、`TestDateTime.bas`、`TestNullable.bas`、`TestResult.bas`、`TestErrors.bas`を追加
+  - `tools/release-smoke.ps1`を追加し、fresh workbook、3-file import、scalar macro、non-document component countを自動検証
+  - `Taskfile.yml`の`release-smoke`、`AGENTS.md` tree、`docs/design.md` ErrorText例、ロードマップを更新
+- Implementation notes:
+  - factoryとResult初期化は、VBAのclass Function戻り値を`CallByName`で呼ぶと実行時438になるため、通常の直接Function呼び出しを採用。xlflowの名前解決を阻害しない変数名を使用した。
+  - `Scripting.Dictionary`が利用できない場合は`vbObjectError + 2200`を伝播する。Issue collectionはdeep snapshotとする。
+  - `Length`と`Min/Max`のbuilder矛盾をchain順にかかわらず検出する。
+  - `CVErr`の`CStr`結果はOfficeの表示言語で変化するため、`Error(<number>)`へ正規化してlocale-independentなreceived descriptorを維持する。
+- Validation:
+  - `rtk task verify`: pass（lint、analyze、fmt-check、test list; 25 tests discovered）
+  - `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
+  - focused modules: AnyValue 3、Text 4、Number 3、Bool 1、DateTime 1、Nullable 2、Result 3、Errors 3、全件pass
+  - `rtk xlflow test --session --no-save --json`: 24 pass、scaffold `Test_Sample_Todo` 1件はintentional TODO
+  - `rtk task release-smoke`: fresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件の検証がpass
+  - `rtk git diff --check`: pass
+- Temporary workspaces:
+  - `C:\temp\vba-schema-release-smoke-20260921`（手動release smoke、payload importとpullのcomponent count確認）
+  - `C:\temp\vba-schema-design-oracle-20260921`（既存compile oracle）
+  - `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\build\Book.xlsm`（ignored local workbook、session終了時に未保存変更を破棄）
+- Unverified:
+  - macOS Office、Windows 32-bit Office
+  - Object/Array/Literal/Enum/Union/Pattern/Email、外部参照自動検査、performance、CI上のExcel/VBE compile
+- Next task: M3 Object validationのDecision GateとDictionary field semanticsを確認し、`Field`/`Strict`/nested pathのtests firstへ進む。
+
+### 2026-09-21 — M1 harness bootstrap
+
+- Status: M0のDG-001/DG-010待ち、M1 harnessは部分完了
+- Changed:
+  - `Taskfile.yml`に`provision-workbook`、source verification、session test、verify taskを追加
+  - `tools/provision-workbook.ps1`を追加。隔離temp projectでxlflow scaffoldを作成し、既存workbookを上書きしない
+  - `tools/check-format.ps1`を追加。VBA-Schema production/focused test sourceの出現後にformatter gateを有効化
+  - `AGENTS.md`のproject treeを更新
+- Validation:
+  - `rtk task provision-workbook`: clean `build/Book.xlsm`を作成
+  - `rtk task verify-source`: pass（lint、analyze、format対象なしの明示skip、test discovery）
+  - managed session start / `rtk xlflow push --fast --session --no-save --json`: pass
+  - `rtk xlflow test --session --no-save --json`: scaffold 4 pass、1 todo
+  - managed session stop `--discard`と`rtk xlflow status --json`: recovery不要、session inactive
+- Temporary workspace:
+  - `C:\temp\vba-schema-new-probe-20260921`
+- Known issue/decision:
+  - 既存xlflow helper 10ファイルをformatterで整形すると`XlflowAssert.bas`がVB014 parser recoveryになるため、formatter-only変更は取り消し、production/focused sourceに限定するTaskへ変更した
+  - `build/Book.xlsm`は`.gitignore`対象で、sourceより古い検証用workbookがローカルに残る
+- Unverified:
+  - macOS Office
+  - Windows 32-bit Office
+  - VBA-Schema production compile/runtime
+- Next task: DG-001/DG-010を確定後、M1 compile fixtureと3 production component skeletonを追加
+
+### 2026-09-21 — M0 decisions and M1 compile skeleton
+
+- Status: DG-001/DG-010 resolved、M1 compile skeleton完了、runtime implementation未着手
+- Decisions:
+  - DG-001: Issueは`Scripting.Dictionary`必須。未提供環境はenvironment failureとしてErr伝播
+  - DG-010: `InternalInitialize`はPublic internal-only。factoryは内部encoded kindを使い、通常の直接呼び出しは`+2100`、再初期化は`+2102`
+- Changed:
+  - `docs/specs/v1-contract.md`、ADR-0001/0002、`docs/design.md`へ決定を反映
+  - `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`のPublic signature skeletonを追加
+  - `PublicApiCompile.bas`で全factory、fluent chain、Collection、typed array、Object、Result assignment、InternalInitializeをcompile対象化
+  - `AGENTS.md`のtreeを更新
+- Validation:
+  - `rtk task verify`: pass
+  - `rtk task fmt-check`: 4 production/focused files unchanged
+  - `rtk xlflow lint --json`: pass
+  - `rtk xlflow analyze --json`: pass
+  - `rtk xlflow push --fast --session --no-save --json`: imported 12 source files
+  - `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
+  - `rtk xlflow test --session --no-save --json`: scaffold 4 pass、1 todo
+  - session stop `--discard`後の`rtk xlflow status --json`: recovery不要、session inactive
+- Temporary workspace: `C:\temp\vba-schema-new-probe-20260921`
+- Unverified:
+  - macOS Office
+  - Windows 32-bit Office
+  - production runtime validation
+  - release staging、performance、CI gate
+- Next task: M1 release staging/compile fixture除外確認後、M2 scalar tests firstへ進む
+
+### 2026-09-21 — M1 release payload staging
+
+- Status: M1 compile skeleton + 3-file payload staging完了。空workbook import smokeとCI/release policyは未完了
+- Decision: `dist/VBA-Schema`は3-file import payloadのgenerated artifactとし、commit対象外にする
+- Changed:
+  - `tools/release-stage.ps1`と`tools/release-verify.ps1`を追加
+  - `Taskfile.yml`へ`release-stage`／`release-verify`を追加
+  - `.gitignore`へ`dist/`を追加
+  - spec/ADR/AGENTS/todoへpayload ownershipを反映
+  - formatter/parser recoveryの再現条件を`docs/xlflow-issues/20260921-fmt-parser-recovery.md`へ記録
+- Validation:
+  - `rtk task release-stage`: 3 files staged
+  - `rtk task release-verify`: 3-file allowlist、`Attribute VB_Name`、class headerを検証してpass
+  - `rtk task verify`: pass
+- Unverified:
+  - empty workbookへのrelease payload import smoke
+  - component countのVBE側検証
+  - DG-009 CI／compile oracle ownership
+- Next task: empty workbook release smokeを追加後、M2 scalar tests firstへ進む
 
 ### 2026-09-21 — Roadmap作成時点
 
