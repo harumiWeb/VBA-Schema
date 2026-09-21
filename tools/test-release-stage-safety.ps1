@@ -68,3 +68,4 @@ foreach ($relativePath in $sourceFiles) {
 }
 
 Write-Output "Release staging safety passed: protected destinations were rejected without mutating production sources."
+exit 0
