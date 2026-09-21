@@ -76,7 +76,7 @@ docs/specs/v1-contract.md
 - M7、MITライセンス、M8レビュー指摘（release staging安全性・benchmark環境ゲート）はコミット済み。独立Pass 2のreview targetは`f3d0434`で、blocking findingなし。
 - CI hardening: `0fd4411`、`417b724`、`f273767`、`7f04898`で固定xlflow実体、VBA checkout改行、release safety probeの終了コードを修正済み。
 - user-facing samples: `sample/`に注文・設定・APIレスポンスの3プロジェクトを追加し、root README・design・AGENTS treeへ反映済み。
-- tag release: `vMAJOR.MINOR.PATCH` pushでsource-checkを先行し、`VBA-Release-vX.Y.Z.zip`を作成するworkflowを追加中。
+- tag release: `vMAJOR.MINOR.PATCH` pushでsource-checkを先行し、`VBA-Release-vX.Y.Z.zip`を作成するworkflowを追加済み。実際のtag pushとRelease作成は未実行。
 
 ### 2.2 Confirmed evidence
 
@@ -720,9 +720,9 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 - [x] CI status名から検証範囲が分かるようにする。
 - [x] release staging/verification TaskをExcel-free CIへ接続する。
 - [x] CI failureと未実行を区別する。
-- [ ] `source-check.yml`を`workflow_call`対応にし、tag push時の二重実行を避ける。
-- [ ] `vMAJOR.MINOR.PATCH` tag pushを厳密検証するrelease workflowを追加する（prereleaseは対象外）。
-- [ ] `VBA-Release-vX.Y.Z.zip`のroot直下に3モジュールだけを格納し、同一tag再実行でassetを更新できるようにする。
+- [x] `source-check.yml`を`workflow_call`対応にし、tag push時の二重実行を避ける。
+- [x] `vMAJOR.MINOR.PATCH` tag pushを厳密検証するrelease workflowを追加する（prereleaseは対象外）。
+- [x] `VBA-Release-vX.Y.Z.zip`の`VBA-Release/`直下に3モジュールだけを格納し、同一tag再実行でassetを更新できるようにする。
 
 ### Release artifact
 
@@ -738,7 +738,7 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 - [x] 追加のthird-party referenceを導入しないため、`THIRD_PARTY_NOTICES.md`はv1 payloadへ含めない方針を確認する。
 - [x] `CHANGELOG.md`を作成し、versionの正をGit tagとする方針を記録する。
 - [x] DG-008で採用した補助物は3-file import payloadの外側で管理する。
-- [ ] GitHub Releaseへ`VBA-Release-vX.Y.Z.zip`を添付し、3 entry以外がないことをCIで検証する。
+- [x] GitHub Releaseへ`VBA-Release-vX.Y.Z.zip`を添付するworkflowと、3 entry以外を拒否するpackage verificationを追加する。実際のtag push後のGitHub Release確認は未実行。
 
 ### Compatibility-conscious static audit
 
@@ -870,6 +870,23 @@ rtk xlflow test --session --no-save --json
 ## 16. Progress Log
 
 新しい記録を上へ追加する。
+
+### 2026-09-21 — Tag release workflow
+
+- Status: `vMAJOR.MINOR.PATCH` tag push専用の`release` workflowを追加し、`source-check`を再利用workflowとして先行実行する構成を確定した。tag push時のsource-check二重実行を避けるため、通常の`source-check` push triggerはbranchに限定した。
+- Decision: stable tagは`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`だけを受理する。prereleaseは別設計とする。Release assetは`VBA-Release-vX.Y.Z.zip`で、`VBA-Release/`直下に`Schema.bas`、`VSchema.cls`、`VValidationResult.cls`だけを含める。
+- Changed: `.github/workflows/release.yml`、`.github/workflows/source-check.yml`、`tools/package-release.ps1`、`Taskfile.yml`、README、CHANGELOG、ADR-0007、v1 contract、design、AGENTS、roadmap。
+- Verification:
+  - `rtk task verify`: pass（60 tests discovered、lint/analyze/quality/format/sample/release safety/benchmark guard pass）。
+  - `rtk actionlint`: pass。
+  - `rtk task release-package TAG=v0.0.0`: pass。ZIP entriesは3件（`VBA-Release/Schema.bas`、`VBA-Release/VSchema.cls`、`VBA-Release/VValidationResult.cls`）。
+  - `rtk task release-stage` / `rtk task release-verify`: pass。
+  - `rtk task release-package TAG=v1.2.3-beta`: stable tag検証で意図どおりfail。
+  - GitHub Actions `source-check` run `35594763970`: success（workflow変更後の全step pass）。
+- Temporary workspaces / artifacts: `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\dist\VBA-Release`、`C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\artifacts\release\VBA-Release-v0.0.0.zip`（ignored generated artifacts）。
+- Unverified: 実際のsemver tag push、GitHub Release作成、同一tag再実行のasset clobber、GitHub-hosted release job上の`gh` upload。Excel/VBE compile、macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable実機再現も従来どおり未検証。
+- Implementation commit: `c58e37f ci: publish VBA release on semantic tags`。`review-vba-schema-design`へpush済み。
+- Next task: ユーザーが承認したstable tag（例`v0.0.0`）をpushし、source-check先行、Release生成、asset内容、再実行動作をGitHub上で確認する。
 
 ### 2026-09-21 — M8 independent review / Pass 2 completion
 
