@@ -19,6 +19,8 @@ root: .
 │   └── workflows/
 │       ├── release.yml
 │       └── source-check.yml
+├── build/
+│   └── Book.xlsm (tracked development workbook)
 ├── dist/
 │   └── VBA-Schema/ (generated, ignored)
 ├── benchmarks/
@@ -39,6 +41,7 @@ root: .
 │   ├── xlflow-issues/
 │   │   ├── 20260921-fmt-parser-recovery.md
 │   │   └── 20260921-push-state-cache-fresh-session.md
+│   ├── release-checklist.md
 │   └── design.md
 ├── src/
 │   ├── classes/

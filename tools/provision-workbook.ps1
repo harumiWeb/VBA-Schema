@@ -14,7 +14,7 @@ if ([System.IO.Path]::IsPathRooted($Destination)) {
 }
 
 if (Test-Path -LiteralPath $destinationPath -PathType Leaf) {
-    throw "Refusing to overwrite an existing workbook: $destinationPath"
+    throw "Refusing to overwrite the tracked or user-owned development workbook: $destinationPath"
 }
 
 $xlflowCommand = Get-Command xlflow -CommandType Application -ErrorAction Stop

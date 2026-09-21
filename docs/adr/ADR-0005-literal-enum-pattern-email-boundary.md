@@ -1,4 +1,4 @@
-# ADR-0005: Literal・Enum・Pattern・Email の値制約境界
+# ADR-0005: Literal, Enum, Pattern, and Email value-constraint boundaries
 
 ## Status
 
@@ -6,34 +6,34 @@
 
 ## Background
 
-`Literal` と `EnumOf` は Variant の暗黙 coercion に依存すると、String、Number、Boolean、Date、Null、Empty の境界が曖昧になる。`EnumOf` の入力配列を共有すると、schema 構築後の外部 mutation によって validation の意味が変わる。
+If `Literal` and `EnumOf` depend on implicit Variant coercion, the boundaries between String, Number, Boolean, Date, Null, and Empty become ambiguous. Sharing the input array for `EnumOf` would also allow external mutation after schema construction to change validation meaning.
 
-`Pattern` と `Email` は正規表現 runtime を必要とする。VBA-Schema は Windows 64-bit Office を検証対象とし、macOS と Windows 32-bit は互換性を意識するが未検証・非保証とするため、正規表現の設定、失敗境界、Email の対象範囲を固定する必要がある。
+`Pattern` and `Email` require a regular-expression runtime. VBA-Schema verifies Windows 64-bit Office and remains compatibility-conscious but unverified and unsupported on macOS and Windows 32-bit, so RegExp configuration, failure boundaries, and the Email scope must be fixed.
 
 ## Decision
 
-- `Literal` の候補は String、Number、Boolean、Date、Null、Empty の scalar category に限定する。Error Variant、Object、Array は schema 構築時に `vbObjectError + 2100` とする。
-- `EnumOf` は一つの一次元 native array を受け取り、構築時に候補値を正規化して内部 snapshot する。typed scalar array は受理し、未初期化配列、多次元配列、空配列、Error/Object/Array 要素は `vbObjectError + 2100` とする。
-- `EnumOf` の候補重複は無意味な定義として `vbObjectError + 2101` とする。String は binary comparison、Number は DG-002 の lossless comparison、他の category は同一 category の値比較を使う。
-- `Pattern` は `VBScript.RegExp` を late binding し、`IgnoreCase=False`、`Global=False`、`MultiLine=False` に固定する。Expression は入力全体に一致する場合だけ成功する。RegExp は validation 時に lazy compile する。
-- Pattern expression の compile 失敗は validation Issue へ変換せず、最初の validation 時に `vbObjectError + 2100` とする。RegExp component の生成失敗は `vbObjectError + 2200` とする。
-- `Email` は VBScript.RegExp による実用的な ASCII 簡易形式とし、local と domain を `@` で一つだけ区切り、全体を 254 UTF-16 code unit 以下に制限する。local の一般的な ASCII atom と単一ドット区切り、domain の ASCII label とドット区切りを受理し、空、local-only、複数 `@`、空白、Unicode、quoted local、comment、IP literal、RFC の全ての拡張は受理対象外とする。
-- `Pattern` と `Email` を併用した場合の評価順は既存 contract どおり Pattern、Email とする。いずれも Text schema にだけ適用できる。
-- Enum の child schema や Union の Collection ownership はこのADRの対象外とし、Union 部分は M6 の ADR-0006 で別途決める。
+- Limit `Literal` candidates to the scalar categories String, Number, Boolean, Date, Null, and Empty. Reject Error Variants, Objects, and Arrays during schema construction with `vbObjectError + 2100`.
+- `EnumOf` accepts one one-dimensional native array and normalizes and snapshots candidate values at construction. Typed scalar arrays are accepted; uninitialized, multidimensional, or empty arrays, and Error/Object/Array elements, raise `vbObjectError + 2100`.
+- Duplicate `EnumOf` candidates are meaningless definitions and raise `vbObjectError + 2101`. Use binary comparison for Strings, the DG-002 lossless comparison for Numbers, and same-category comparison for other categories.
+- Late-bind `VBScript.RegExp` for `Pattern`, fixing `IgnoreCase=False`, `Global=False`, and `MultiLine=False`. The expression succeeds only on a full-input match. Compile RegExp lazily during validation.
+- Do not convert Pattern-expression compilation failures into validation Issues; raise `vbObjectError + 2100) at the first validation. Failure to create the RegExp component raises `vbObjectError + 2200`.
+- Define `Email` as a practical ASCII form implemented with `VBScript.RegExp`. Require exactly one `@` between local and domain and a total length of at most 254 UTF-16 code units. Accept common ASCII atoms and dot-separated local/domain labels, but exclude empty values, local-only values, multiple `@`, whitespace, Unicode, quoted local parts, comments, IP literals, and all other RFC extensions.
+- When `Pattern` and `Email` are combined, preserve the existing contract order: Pattern, then Email. Both apply only to Text schemas.
+- Enum child-schema behavior and Union Collection ownership are outside this ADR; the Union decision is recorded separately in ADR-0006 for milestone M6.
 
 ## Consequences
 
-- Enum 定義後の入力配列 mutation は validation 結果へ影響しない。
-- candidate の category 境界と duplicate 定義が deterministic になり、`"1"` と `1`、Boolean と Number、Null と Empty を混同しない。
-- Pattern は検索一致ではなく全体一致であるため、部分文字列検索には明示的な expression が必要になる。
-- Email は典型的な入力ミス検出を目的とし、RFC 完全準拠を提供しない。README で範囲を明記する。
-- VBScript.RegExp が利用できない host では validation failure ではなく environment failure が発生する。macOS/32-bit の実機証拠は別途必要である。
+- Mutating the input array after Enum construction does not change validation results.
+- Candidate categories and duplicate detection are deterministic; `"1"` and `1`, Boolean and Number, and Null and Empty are not conflated.
+- Pattern is a full match rather than a search, so substring matching requires an explicit expression.
+- Email detects common input mistakes and does not provide full RFC compliance. The scope must be stated in the README.
+- A host without VBScript.RegExp produces an environment failure rather than a validation failure. Separate evidence is required for macOS and 32-bit Office.
 
 ## Rationale
 
-- Tests: M5 focused tests で category、snapshot、duplicate、Pattern flags、full-match、Email 境界を固定する。
-- Code: `VSchema.cls` に scalar comparison、Enum snapshot、lazy RegExp creation を集約し、外部参照設定を追加しない。
-- Related specs: `docs/specs/v1-contract.md`、`docs/design.md`
+- Tests: M5 focused tests fix category, snapshot, duplicate, Pattern-flag, full-match, and Email boundary behavior.
+- Code: `VSchema.cls` centralizes scalar comparison, Enum snapshots, and lazy RegExp creation without adding external references.
+- Related specs: `docs/specs/v1-contract.md`, `docs/design.md`
 
 ## Supersedes
 

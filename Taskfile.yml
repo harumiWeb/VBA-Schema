@@ -9,7 +9,7 @@ tasks:
       - task --list
 
   provision-workbook:
-    desc: Create build/Book.xlsm from an isolated xlflow scaffold
+    desc: Create the missing development workbook from an isolated xlflow scaffold
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/provision-workbook.ps1 -Destination build/Book.xlsm
 

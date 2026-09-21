@@ -53,6 +53,22 @@ Public Sub Test_Number_EnforcesBoundsAndWholeNumber()
     XlflowAssert.AssertTrue result.Success
 End Sub
 
+Public Sub Test_Number_AcceptsFiniteDoubleOutsideDecimalRange()
+    Dim largeValue As Double
+    largeValue = 1E+100
+
+    Dim result As VValidationResult
+    Set result = Schema.Number().SafeParse(largeValue)
+    XlflowAssert.AssertTrue result.Success
+
+    Set result = Schema.Number().Min(1E+99).Max(1E+101).WholeNumber().SafeParse(largeValue)
+    XlflowAssert.AssertTrue result.Success
+
+    Set result = Schema.Number().Max(1E+99).SafeParse(largeValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertStrictEquals "too_big", IssueValue(result, "code")
+End Sub
+
 Private Function IssueValue(ByVal result As VValidationResult, ByVal Key As String) As String
     Dim issues As Collection
     Set issues = result.Issues

@@ -54,8 +54,12 @@ function Get-Sha256 {
 
 New-Item -ItemType Directory -Path $outputDirectoryPath -Force | Out-Null
 $packagePath = Join-Path $outputDirectoryPath "VBA-Release-$Tag.zip"
+$checksumPath = "$packagePath.sha256"
 if (Test-Path -LiteralPath $packagePath) {
     Remove-Item -LiteralPath $packagePath -Force
+}
+if (Test-Path -LiteralPath $checksumPath) {
+    Remove-Item -LiteralPath $checksumPath -Force
 }
 
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("vba-release-" + [guid]::NewGuid().ToString("N"))
@@ -103,5 +107,11 @@ try {
 }
 
 $hash = Get-Sha256 $packagePath
+[System.IO.File]::WriteAllText(
+    $checksumPath,
+    "$hash  $([System.IO.Path]::GetFileName($packagePath))$([Environment]::NewLine)",
+    [System.Text.Encoding]::ASCII
+)
 Write-Output "Packaged VBA-Release: $packagePath"
 Write-Output "SHA-256: $hash"
+Write-Output "SHA-256 checksum: $checksumPath"

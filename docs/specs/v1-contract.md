@@ -2,13 +2,13 @@
 
 ## 1. Status and authority
 
-この文書はVBA-Schema v1の公開API、validation semantics、error contract、compatibility、配布境界を定義する。`docs/design.md`の例や概念説明と矛盾する場合、この文書を優先する。
+This document defines the public API, validation semantics, error contract, compatibility, and distribution boundary for VBA-Schema v1. If an example or conceptual explanation in `docs/design.md` conflicts with this document, this document takes precedence.
 
 ## 2. Public API
 
 ### 2.1 Factory API
 
-`Schema.bas`は次のfactoryを公開する。
+`Schema.bas` exposes the following factories.
 
 ```vb
 Public Function AnyValue() As VSchema
@@ -23,14 +23,14 @@ Public Function EnumOf(ByVal Values As Variant) As VSchema
 Public Function UnionOf(ByVal Schemas As Collection) As VSchema
 ```
 
-- `ArrayOf`は`VSchema`を受け取る。
-- `EnumOf`はscalar valueを含む一次元native arrayを受け取り、構築時に候補をsnapshotする。typed scalar arrayは受理する。
-- `UnionOf`は`VSchema`だけを含む非空`Collection`を受け取る。objectを含む`Array()`はv1の公開契約にしない。Collectionのbranch順と要素集合は構築時にsnapshotするが、各child `VSchema` instanceはcloneせず参照を共有する。
-- `ArrayOf(Nothing)`、`UnionOf(Nothing)`、未初期化・多次元・空のEnum、空のUnion、不正なEnum要素、重複するEnum候補、未初期化`VSchema`または`VSchema`以外のUnion要素はprogrammer misuseとして`Err.Raise`する。
+- `ArrayOf` accepts a `VSchema`.
+- `EnumOf` accepts a one-dimensional native array containing scalar values and snapshots the candidates when the schema is constructed. Typed scalar arrays are accepted.
+- `UnionOf` accepts a non-empty `Collection` containing only `VSchema` instances. An `Array()` containing objects is not part of the v1 public contract. The branch order and element set of the Collection are snapshotted at construction time, while each child `VSchema` instance remains shared by reference rather than being cloned.
+- `ArrayOf(Nothing)`, `UnionOf(Nothing)`, uninitialized, multidimensional, or empty Enum arrays, empty Unions, invalid Enum elements, duplicate Enum candidates, uninitialized `VSchema` instances, and Union elements that are not `VSchema` instances raise `Err.Raise` as programmer misuse.
 
 ### 2.2 Fluent API
 
-`VSchema`は次のbuilderを公開する。
+`VSchema` exposes the following builders.
 
 ```vb
 Public Function OptionalField() As VSchema
@@ -45,37 +45,37 @@ Public Function Field(ByVal FieldName As String, ByVal FieldSchema As VSchema) A
 Public Function Strict() As VSchema
 ```
 
-`OptionalField`はObject fieldが存在しない場合だけを許可する。`Empty`、`Null`、単体値には作用しない。`WholeNumber`は数学的に整数であるNumberを要求する。
+`OptionalField` allows an Object field to be absent. It has no effect on `Empty`, `Null`, or standalone values. `WholeNumber` requires a Number that is mathematically integral.
 
-各builderは同一instanceを変更して返す。後勝ちの上書きは行わず、同じconstraintの重複指定、`Min > Max`、負のLength、schema kindに適用できないmodifierはprogrammer misuseとする。
+Each builder mutates and returns the same instance. Builders do not silently overwrite an existing setting. Duplicate use of the same constraint, `Min > Max`, negative lengths, and modifiers that do not apply to the schema kind are programmer misuse.
 
-制約の検証順はschema nodeごとに固定する。型・Null/Emptyの判定後、`Length`、`Min`、`Max`、`WholeNumber`、`Pattern`、`Email`の順で評価し、最初に失敗した制約1件だけをそのnodeのIssueとする。Objectはfieldごとにこの規則を適用し、全体のIssue順はfield declaration orderを維持する。
+Constraint evaluation order is fixed for each schema node. After type and Null/Empty checks, constraints are evaluated in this order: `Length`, `Min`, `Max`, `WholeNumber`, `Pattern`, and `Email`. Only the first failed constraint for that node is added as an Issue. Object fields apply the same rule independently, and the overall Issue order preserves field declaration order.
 
-`Length(n).Min(m)`は`m > n`、`Length(n).Max(m)`は`m < n`になる時点でprogrammer misuseとする。逆順のchainでも同じ条件をbuilder時に検出する。`Min`/`Max`と`WholeNumber`の組み合わせはNumberに限り許可する。`Pattern`と`Email`の併用はTextに限り許可し、上記の固定順で評価する。
+`Length(n).Min(m)` is programmer misuse when `m > n`, and `Length(n).Max(m)` is programmer misuse when `m < n`. The builder detects the same condition even when the chain is written in the reverse order. The combination of `Min`/`Max` and `WholeNumber` is allowed only for Number schemas. Combining `Pattern` and `Email` is allowed only for Text schemas and follows the fixed order above.
 
-適用可能な組み合わせは次のとおり。
+The supported combinations are:
 
 | Modifier | Schema kind |
 | --- | --- |
-| `OptionalField` | すべて。Object fieldとして使用した場合だけ意味を持つ |
-| `Nullable` | すべて |
-| `Min`, `Max` | Text、Number、Array |
-| `Length` | Text、Array |
+| `OptionalField` | All kinds; meaningful only when used as an Object field |
+| `Nullable` | All kinds |
+| `Min`, `Max` | Text, Number, Array |
+| `Length` | Text, Array |
 | `WholeNumber` | Number |
 | `Pattern`, `Email` | Text |
 | `Field`, `Strict` | ObjectSchema |
 
 ### 2.3 Internal initialization (unsupported)
 
-`VSchema`はVBAのclass初期化制約により、次のprocedureをPublicとして保持する。
+Because of VBA class initialization constraints, `VSchema` exposes the following procedure as Public.
 
 ```vb
 Public Function InternalInitialize(ByVal KindCode As Long) As VSchema
 ```
 
-これはv1の利用者向け安定APIではない。`Schema.bas`のfactoryだけが内部encoded kindを渡し、通常のschema kind値を直接渡す呼び出しは`vbObjectError + 2100`として拒否する。encoded kindの不正値と再初期化もprogrammer misuseとし、factory以外からの利用をサポート対象にしない。これはVBAの公開可視性による制約であり、security boundaryではない。
+This is not a stable public API for v1 users. Only factories in `Schema.bas` pass an internal encoded kind. A direct call that passes an ordinary schema kind is rejected with `vbObjectError + 2100`. Invalid encoded kinds and reinitialization are also programmer misuse, and use from outside the factories is not supported. This is a limitation caused by VBA's public visibility rules, not a security boundary.
 
-同じVBA classの別instanceのPrivate memberを参照できない制約を補うため、child schemaの合成、path付きnested validation、schema graph preflightに必要な`Internal*` hookもPublicとして保持する。これらもunsupported internal-only APIであり、利用者向け安定APIやsecurity boundaryではない。
+Because VBA cannot access a Private member through another instance of the same class, the `Internal*` hooks required to compose child schemas, perform nested validation with paths, and preflight the schema graph are also Public. These are unsupported internal-only APIs, not stable user APIs or security boundaries.
 
 ### 2.4 Validation API
 
@@ -88,46 +88,46 @@ Public Property Get Issues() As Collection
 Public Property Get ErrorText() As String
 ```
 
-`VSchema`と`VValidationResult`を返すFunction、およびObjectを含む`Value`はVBAのObject assignment規則に従って`Set`で受け取る。scalarの`Value`は通常代入で受け取る。
+Functions returning `VSchema` or `VValidationResult`, and the `Value` property when it contains an Object, follow VBA Object assignment rules and must be received with `Set`. Scalar `Value` results use ordinary assignment.
 
-`SafeParse`はvalidation failureではErrを投げない。成功時と失敗時のcontractは次のとおり。
+`SafeParse` does not raise an error for validation failures. Its success and failure contract is:
 
 | Property | Success | Failure |
 | --- | --- | --- |
 | `Success` | `True` | `False` |
-| `Value` | 入力値。Objectは同じ参照 | `Empty` |
-| `Issues` | 空のCollection | 1件以上のsnapshot Collection |
-| `ErrorText` | 空文字列 | Issuesから決定的に生成した文字列 |
+| `Value` | The input value; Objects keep the same reference | `Empty` |
+| `Issues` | An empty Collection | A snapshot Collection with one or more items |
+| `ErrorText` | An empty string | A deterministic string generated from Issues |
 
-`Issues`は呼び出しごとにsnapshotを返す。呼び出し側が返却CollectionやIssue Dictionaryを変更しても、Result内部の状態と`ErrorText`は変化しない。
+`Issues` returns a snapshot on every call. Mutating the returned Collection or an Issue Dictionary does not change the internal Result state or `ErrorText`.
 
-`ErrorText`は次の固定文法を使用する。
+`ErrorText` uses this fixed grammar:
 
 ```text
 <path>: <message> (expected=<expected>, received=<received>)
 ```
 
-複数Issueは`vbCrLf`で連結し、先頭・末尾に余分な改行を置かない。`expected`と`received`はIssue snapshot内の文字列をそのまま使用し、raw input全体やsecretを追加出力しない。
+Multiple Issues are joined with `vbCrLf`, with no extra leading or trailing line break. `expected` and `received` use the strings from the Issue snapshots as-is; the raw input or secrets are not emitted.
 
 ## 3. Error boundary
 
 ### 3.1 Validation failure
 
-入力値がschemaを満たさない場合は`Success=False`を返す。型不一致、required field欠落、constraint違反、strict objectのunknown fieldが該当する。
+When an input does not satisfy a schema, return `Success=False`. Type mismatches, missing required fields, constraint violations, and unknown fields in a strict Object are validation failures.
 
 ### 3.2 Programmer misuse
 
-不正なschema構築は`vbObjectError + 2100`から`vbObjectError + 2199`の範囲で`Err.Raise`する。例:
+Invalid schema construction raises `Err.Raise` in the range `vbObjectError + 2100` through `vbObjectError + 2199`. Examples include:
 
 - `ArrayOf(Nothing)`
-- 空のfield名または`Field(name, Nothing)`
-- 同じfield名の重複
-- schema kindに適用できないmodifier
-- 矛盾または重複するconstraint
-- 空のEnumまたはUnion
-- 循環するschema graph（`vbObjectError + 2103`）
+- An empty field name or `Field(name, Nothing)`
+- Duplicate field names
+- A modifier that does not apply to the schema kind
+- Contradictory or duplicate constraints
+- An empty Enum or Union
+- A cyclic schema graph (`vbObjectError + 2103`)
 
-初期割当は次のとおりとする。
+The initial allocation is:
 
 ```text
 vbObjectError + 2100  invalid argument
@@ -138,28 +138,28 @@ vbObjectError + 2103  cyclic schema
 
 ### 3.3 Runtime or environment failure
 
-必要なruntime componentが利用できない場合や内部invariantが破られた場合は、`vbObjectError + 2200`から`vbObjectError + 2299`の範囲でErrを投げる。`SafeParse`はこれらをvalidation issueへ変換しない。
+When a required runtime component is unavailable or an internal invariant is violated, raise an error in the range `vbObjectError + 2200` through `vbObjectError + 2299`. `SafeParse` does not convert these into validation Issues.
 
 ```text
 vbObjectError + 2200  required runtime component unavailable
 vbObjectError + 2299  internal invariant failure
 ```
 
-`InternalInitialize`への通常の直接呼び出し、不正kind、factory encoded kindの破損は`vbObjectError + 2100`とする。初期化済みinstanceの再初期化は`vbObjectError + 2102`とする。
+A normal direct call to `InternalInitialize`, an invalid kind, or a corrupt factory-encoded kind uses `vbObjectError + 2100`. Reinitializing an initialized instance uses `vbObjectError + 2102`.
 
 ## 4. Issue contract
 
-各Issueはlate-bound `Scripting.Dictionary`のsnapshotで、次のString keyを必ず持つ。
+Each Issue is a snapshot of a late-bound `Scripting.Dictionary` and always contains these String keys.
 
 | Key | Type | Contract |
 | --- | --- | --- |
-| `path` | String | canonical path |
-| `code` | String | 公開error code |
-| `message` | String | 人間向けメッセージ |
-| `expected` | String | 期待条件の安定した説明 |
-| `received` | String | 入力値の安全な型・値要約 |
+| `path` | String | Canonical path |
+| `code` | String | Public error code |
+| `message` | String | Human-readable message |
+| `expected` | String | Stable description of the expected condition |
+| `received` | String | Safe summary of the input type and value |
 
-`received`は次の構造化文法を使用し、Object参照や配列そのものを公開しない。
+`received` uses this structured grammar and never exposes an Object reference or the array itself.
 
 ```text
 String("<escaped>")
@@ -174,17 +174,17 @@ Object(<TypeName>)
 Array(<TypeName>)
 ```
 
-String値はbackslash、double quote、control characterをescapeし、escape後の全体を80 UTF-16 code unit以内に収める。超過時は内容をmarker `...`込みで切り詰める。Numberはlocale非依存で小数点を`.`とし、桁区切りを使わない。Dateは秒未満を切り捨てて`yyyy-mm-ddThh:nn:ss`とする。これによりIssueが入力Objectの寿命、mutation、host localeへ依存することを防ぐ。
+String values escape backslashes, double quotes, and control characters, and the complete escaped result is limited to 80 UTF-16 code units. When it exceeds the limit, it is truncated with the `...` marker included. Numbers use a locale-independent decimal point (`.`) and no thousands separators. Dates discard sub-second precision and use `yyyy-mm-ddThh:nn:ss`. This prevents an Issue from depending on the lifetime or mutation of the input Object or the host locale.
 
-Issue順は決定的でなければならない。
+Issue order must be deterministic:
 
-1. depth-first
-2. Object fieldはschemaへの追加順
-3. Arrayは論理index順
-4. Objectのnon-string keyはdescriptorのbinary ordinal順
-5. strict unknown fieldはbinary ordinal順
+1. Depth-first
+2. Object fields in schema declaration order
+3. Arrays in logical index order
+4. Non-string Object keys in binary ordinal order
+5. Strict unknown fields in binary ordinal order
 
-v1の公開error codeは次のとおり。
+The public v1 error codes are:
 
 ```text
 required
@@ -205,17 +205,17 @@ invalid_array_rank
 
 ## 5. Canonical path
 
-- rootは常に`$`とする。
-- identifier形式`[A-Za-z_][A-Za-z0-9_]*`のfieldは`$.user.name`形式とする。
-- それ以外のfieldは`$["a.b"]`形式とする。backslash、double quote、改行、復帰、tabはそれぞれ`\\`、`\"`、`\n`、`\r`、`\t`へescapeし、その他のcontrol characterは`\uXXXX`とする。
-- ArrayとCollectionは基底indexに関係なく、列挙順を0始まりの論理indexへ正規化する。
-- v1で受理するnative arrayは一次元だけとする。
-- 多次元配列は`invalid_array_rank` issueとする。
-- 未初期化dynamic arrayは要素数0のarrayとして扱う。
-- `ArrayOf`のlength constraint（`Length`、`Min`、`Max`）は要素検証より先に評価し、最初のconstraint issueだけをarray nodeへ追加する。
-- native arrayのrank／bounds probeは限定helper内で行い、未初期化判定に伴う`LBound`／`UBound` Errをvalidation外へ漏らさない。入力array／Collectionは変更しない。
+- The root is always `$`.
+- Fields matching `[A-Za-z_][A-Za-z0-9_]*` use the `$.user.name` form.
+- Other fields use the `$["a.b"]` form. Backslashes, double quotes, line feeds, carriage returns, and tabs are escaped as `\\`, `\"`, `\n`, `\r`, and `\t`; other control characters use `\uXXXX`.
+- Arrays and Collections normalize enumeration order to zero-based logical indexes regardless of the underlying base index.
+- Native arrays accepted by v1 are one-dimensional only.
+- Multidimensional arrays produce an `invalid_array_rank` Issue.
+- An uninitialized dynamic array is treated as an array with zero elements.
+- Array length constraints (`Length`, `Min`, and `Max`) are evaluated before element validation, and only the first constraint Issue is added to the array node.
+- Native array rank/bounds probing is contained in a limited helper. Errors from `LBound`/`UBound` used to detect an uninitialized array must not escape as validation errors. Input arrays and Collections are not modified.
 
-例:
+Examples:
 
 ```text
 $
@@ -227,66 +227,67 @@ $["field.with.dot"]
 
 ## 6. Object field semantics
 
-- field名比較は`vbBinaryCompare`相当のcase-sensitive比較とする。
-- 入力Dictionaryの`CompareMode`には依存せず、`Keys`列挙と`StrComp(..., vbBinaryCompare)`でfield照合を行う。
-- 同じfield名の重複登録はprogrammer misuseとする。
-- 入力Objectはv1では`Scripting.Dictionary`に限定する。
-- Object判定は`TypeName(value) = "Dictionary"`を入口とし、`Count`、`Exists`、`Keys`の限定的な能力検査を行う。TypeName不一致または能力検査失敗は`invalid_type` issueとする。
-- `Collection`や任意のclass instanceをkey-value Objectとして扱わない。
-- String以外のinput keyは`.Strict()`の有無にかかわらず`invalid_key` issueとする。pathはobject nodeのpath、`expected`は`String key`、`received`は安全なdescriptorとし、複数keyはdescriptorのbinary ordinal順とする。
-- unknown fieldのdefaultはpassthrough、`.Strict()`指定時は`unknown_field` issueとする。
-- strict unknown fieldのpathはcanonical path、`received`は`DescribeValue`のString descriptorとし、binary ordinal順とする。
-- required fieldが存在しない場合の`received`は`Missing`とする。これはpresent `Empty`、`Null`とは異なる。
-- validationは入力Dictionaryを変更しない。
+- Field names use `vbBinaryCompare`-equivalent case-sensitive comparison.
+- Field matching does not depend on the input Dictionary's `CompareMode`; it uses key enumeration and `StrComp(..., vbBinaryCompare)`.
+- Registering the same field name twice is programmer misuse.
+- v1 limits Object input to `Scripting.Dictionary`.
+- Object detection begins with `TypeName(value) = "Dictionary"` and performs limited capability checks for `Count`, `Exists`, and `Keys`. A TypeName mismatch or failed capability check produces an `invalid_type` Issue.
+- A `Collection` or arbitrary class instance is not treated as a key-value Object.
+- A non-String input key produces an `invalid_key` Issue regardless of whether `.Strict()` is used. The path is the Object node path, `expected` is `String key`, and `received` is a safe descriptor. Multiple keys use binary ordinal descriptor order.
+- Unknown fields pass through by default; `.Strict()` produces an `unknown_field` Issue.
+- A strict unknown-field path is canonical, and `received` is the String descriptor from `DescribeValue`; order is binary ordinal.
+- A missing required field uses `Missing` as `received`. This is distinct from a present `Empty` or `Null`.
+- Validation does not modify the input Dictionary.
 
 ## 7. Type and comparison semantics
 
-- `AnyValue`はNull、Empty、Error Variant、Nothingを含むすべてのVariant状態を受理する。
-- 暗黙のString/Number/Boolean/Date変換を行わない。
-- Numberとして受理する型はByte、Integer、Long、Single、Double、Currencyとする。
-- Decimal VariantとLongLongは、32-bit/64-bitで同じ契約を検証できるまでv1では受理しない。
-- Number constraintの境界値はVariantとして保持し、無条件にDoubleへ変換しない。
-- Numberの`Min`/`Max`は受理対象のnumeric Variantだけを境界値として許可する。
-- Text/Arrayの`Min`/`Max`と`Length`は、数学的に整数で0以上かつLong範囲内のnumeric Variantを許可する。内部保存時にLongへ正規化する。
-- Null、Empty、Error Variant、Object、Array、Boolean、Date、StringをNumber boundaryへ渡した場合は`invalid argument`とする。
-- 小数、Long範囲外、負数、非numeric値をText/Array boundaryまたは`Length`へ渡した場合は`invalid argument`とする。
-- NaN、Infinity、overflowを発生させる比較は受理しない。
-- Byte/Integer/Long同士は整数比較、SingleはDoubleへlossless widening、Currency同士はCurrency比較を優先する。異なるnumeric categoryを比較する場合は、比較前後のround-tripで値が変化しないと確認できる場合だけ共通表現へ変換する。overflowまたはprecision lossを証明できない場合は`vbObjectError + 2100`として拒否し、無条件の`CDbl`を行わない。
-- NaN、Infinity、または比較結果を確定できないDouble/Currency境界は受理しない。
-- `WholeNumber`はNumber値が数学的に整数の場合に成功する。
-- Literal/EnumはString、Number、Boolean、Date、Null、Emptyのcategoryを区別する。Error Variant、Object、Arrayは定義候補として受理しない。
-- Number category内では数値subtypeが異なっても値が等しければ一致する。
-- String比較とfield名比較はbinary comparisonとする。
-- `EnumOf`は構築時に候補値をsnapshotし、元の配列を後から変更してもschemaの意味を変更しない。候補重複は`vbObjectError + 2101`とする。
-- StringのLengthはVBAの`Len`と同じUTF-16 code unit数とする。
+- `AnyValue` accepts every Variant state, including Null, Empty, Error Variant, and Nothing.
+- No implicit String/Number/Boolean/Date conversion is performed.
+- Number accepts Byte, Integer, Long, Single, Double, and Currency.
+- Decimal Variants and LongLong are not accepted in v1 until the same contract can be verified on both 32-bit and 64-bit hosts.
+- Number type acceptance does not depend on conversion to Decimal. A finite Double outside the Decimal range is accepted by Number type checking alone.
+- Number constraint boundaries are stored as Variants and are not unconditionally converted to Double.
+- Number `Min`/`Max` boundaries must be supported numeric Variants.
+- Text/Array `Min`/`Max` and `Length` accept numeric Variants that are mathematically integral, non-negative, and within the Long range. They are normalized to Long for internal storage.
+- Passing Null, Empty, an Error Variant, Object, Array, Boolean, Date, or String as a Number boundary is an `invalid argument`.
+- Passing a fraction, a value outside the Long range, a negative value, or a non-numeric value as a Text/Array boundary or `Length` is an `invalid argument`.
+- Comparisons that would produce NaN, Infinity, or overflow are rejected.
+- Byte/Integer/Long values use integer comparison, Single values use lossless widening to Double, and Currency values prefer Currency comparison. When different numeric categories are compared, conversion to a common representation is allowed only when round-trip checks prove that the value does not change. If overflow or precision loss cannot be proven absent, reject with `vbObjectError + 2100` rather than performing unconditional `CDbl`.
+- A Double/Currency boundary involving NaN, Infinity, or an indeterminate comparison is rejected.
+- `WholeNumber` succeeds when a Number is mathematically integral. Single/Double values are checked as floating-point values, and Currency values preserve Currency precision; conversion to Decimal is not required.
+- Literal/Enum distinguish String, Number, Boolean, Date, Null, and Empty categories. Error Variants, Objects, and Arrays are not accepted as definition candidates.
+- Within the Number category, values match when numerically equal even if their numeric subtypes differ.
+- String comparisons and field-name comparisons use binary comparison.
+- `EnumOf` snapshots candidate values at construction time; later changes to the source array do not change schema meaning. Duplicate candidates raise `vbObjectError + 2101`.
+- String `Length` is the same UTF-16 code-unit count as VBA `Len`.
 
-`UnionOf`はbranch順に検証し、最初の成功で成功する。nested Unionはflattenせず構造を保持する。全branchがvalidation failureになった場合、内部branch Issueは破棄し、失敗pathに一件の`invalid_union` Issue（expected=`Union`）を追加する。branch内部で発生したprogrammer misuse、runtime/environment failure、internal invariant failureはUnionのvalidation failureへ変換せず、そのまま送出する。
+`UnionOf` validates branches in order and succeeds on the first success. Nested Unions are not flattened; their structure is preserved. When every branch fails validation, internal branch Issues are discarded and one `invalid_union` Issue (`expected=Union`) is added at the failed path. Programmer misuse, runtime/environment failures, and internal invariant failures raised inside a branch are not converted into Union validation failures; they are propagated unchanged.
 
-`Pattern`は`VBScript.RegExp`をlate bindingし、`IgnoreCase=False`、`Global=False`、`MultiLine=False`に固定する。Expressionは入力全体に一致した場合だけ成功する。RegExp instanceはlazy compileし、不正なregular expressionは最初のvalidation時に`vbObjectError + 2100`としてErrを投げる。RegExp runtime自体が利用できない場合は`vbObjectError + 2200`のenvironment failureとする。
+`Pattern` late-binds `VBScript.RegExp` and fixes `IgnoreCase=False`, `Global=False`, and `MultiLine=False`. The expression succeeds only when it matches the entire input. The RegExp instance is compiled lazily, and an invalid regular expression raises `vbObjectError + 2100` at the first validation. If the RegExp runtime is unavailable, raise the `vbObjectError + 2200` environment failure.
 
-`Email`はPatternと同じRegExp runtimeを使う実用的なASCII簡易形式である。localとdomainを一つの`@`で区切り、全体長254 UTF-16 code unit以下、空白・Unicode・quoted local・comment・IP literalを受理対象外とする。RFC完全準拠を保証しない。`Pattern`と`Email`を併用した場合はPattern、Emailの順で評価する。
+`Email` uses the same RegExp runtime and is a practical ASCII-only form. It separates local and domain with one `@`, limits total length to 254 UTF-16 code units, and excludes whitespace, Unicode, quoted local parts, comments, and IP literals. It does not claim full RFC compliance. When `Pattern` and `Email` are combined, evaluate Pattern first and Email second.
 
 ## 8. Schema graph and mutation
 
-- builderはmutableであり、schemaを共有した後の変更はすべての参照先へ反映される。
-- `Field`と`ArrayOf`はchild schemaをcloneしない。
-- 自己参照または間接循環するschema graphはv1の対象外であり、`SafeParse`開始時のDFS preflightでvalidation開始前に`vbObjectError + 2103`として拒否する。active pathはCollection、schema identityはVBAの`Is`比較で判定し、shared childの非循環再利用は許可する。
+- Builders are mutable; changes made after sharing a schema are visible through every reference.
+- `Field` and `ArrayOf` do not clone child schemas.
+- Self-referential and indirectly cyclic schema graphs are outside the v1 contract. A DFS preflight rejects them with `vbObjectError + 2103` before validation begins. The active path is tracked with a Collection, schema identity is checked with VBA `Is`, and non-cyclic reuse of a shared child is allowed.
 
 ## 9. Compatibility contract
 
 | Environment | Status |
 | --- | --- |
-| Windows 64-bit Office 2016+ | 開発・検証対象 |
-| Windows 32-bit Office 2016+ | compatibility-conscious、未検証、非保証 |
-| macOS Office | compatibility-conscious、未検証、非保証 |
+| Windows 64-bit Office 2016+ | Development and verification target |
+| Windows 32-bit Office 2016+ | Compatibility-conscious, unverified, not guaranteed |
+| macOS Office | Compatibility-conscious, unverified, not guaranteed |
 
-互換性を意識するため、Windows API、pointer-size依存宣言、Excel Object Modelへのコア依存を禁止する。`Scripting.Dictionary`と`VBScript.RegExp`はlate bindingするが、対象環境で利用可能であることを保証しない。必要なcomponentが存在しない場合はruntime/environment failureとする。
+To preserve compatibility, the core must not depend on the Windows API, pointer-size-specific declarations, or the Excel Object Model. `Scripting.Dictionary` and `VBScript.RegExp` are late-bound, but their availability is not guaranteed on every target. A missing required component is a runtime/environment failure.
 
-ドキュメントとrelease noteでは、未検証環境を「対応済み」「サポート済み」と表現してはならない。
+Documentation and release notes must not describe an unverified environment as supported or verified.
 
 ## 10. Distribution contract
 
-production sourceの正規配置は次の3ファイルとする。
+The canonical production source consists of these three files:
 
 ```text
 src/modules/Schema.bas
@@ -294,13 +295,13 @@ src/classes/VSchema.cls
 src/classes/VValidationResult.cls
 ```
 
-release artifactにはこの3ファイルだけを含める。`src/modules/Tests`、`src/modules/Xlflow`、`App.bas`、`Main.bas`、`Ui.bas`、workbook document moduleは含めない。
+The release artifact contains only these three files. It excludes `src/modules/Tests`, `src/modules/Xlflow`, `App.bas`, `Main.bas`, `Ui.bas`, and workbook document modules.
 
-`src/`は開発・テスト用、`dist/VBA-Schema/`は3ファイルallowlistから生成するcommit対象外のimport payload、`.xlsm`はxlflow検証用成果物とする。現行のxlflow source tree全体をrelease artifactとして扱わない。release時は3ファイルの明示allowlistからstaging projectを作成する。
+`src/` is for development and tests, `dist/VBA-Schema/` is a generated, non-committed import payload built from the three-file allowlist, and the tracked `.xlsm` is an xlflow development fixture. The complete xlflow source tree is not a release artifact. Release staging creates a temporary project from the explicit three-file allowlist.
 
-staged VBA sourceはUTF-8（BOMなし）かつLF改行でなければならない。README、LICENSE、CHANGELOG、sample workbook、ZIPなどの補助assetは3-file import payloadとは別に提供し、payloadのcomponent数を増やさない。
+Staged VBA source must be UTF-8 without a BOM and use LF line endings. README, LICENSE, CHANGELOG, sample workbooks, ZIP files, and other supporting assets are provided separately from the three-file import payload and must not increase its component count.
 
-GitHub Release workflowは`vMAJOR.MINOR.PATCH`形式のstable tag pushだけを受理する。tag pushでは再利用可能な`source-check` workflowを先に実行し、成功後に`VBA-Release-vX.Y.Z.zip`を生成する。ZIPのroot directoryは`VBA-Release/`とし、次の3 entryだけを含める。
+The GitHub Release workflow accepts only stable `vMAJOR.MINOR.PATCH` tag pushes. It runs the reusable `source-check` workflow first and generates `VBA-Release-vX.Y.Z.zip` only after it succeeds. The ZIP root is `VBA-Release/` and contains exactly these three entries:
 
 ```text
 VBA-Release/Schema.bas
@@ -308,22 +309,26 @@ VBA-Release/VSchema.cls
 VBA-Release/VValidationResult.cls
 ```
 
-`-rc.1`などのprerelease tagはv1 workflowの対象外とする。同一tagのworkflow再実行では、既存GitHub Releaseの同名assetをclobberして更新できる。
+Prerelease tags such as `-rc.1` are outside the v1 workflow. Re-running the workflow for the same tag may update same-named assets on an existing GitHub Release with clobber behavior.
 
-`tools/release-stage.ps1`のDestinationはrepository内でなければならず、repository root、`src`、`.git`、`.xlflow`、`build`のいずれかと同一・子孫・祖先になるパスは拒否する。拒否判定は既存Destinationの削除より前に行い、production sourceや検証用workbookをrelease stagingの誤指定で削除できないようにする。
+The Destination of `tools/release-stage.ps1` must be inside the repository, but it must not be the same as, a child of, or an ancestor of the repository root, `src`, `.git`, `.xlflow`, or `build`. These checks occur before an existing Destination is deleted, so a mistaken release-staging path cannot delete production source or the verification workbook.
 
-release gateは次を満たす必要がある。
+The release gate must prove:
 
-1. 3ファイルだけを空のmacro-enabled workbookへimportできる
-2. VBE compileが成功する
-3. 外部参照設定を追加せずscalar smoke testが成功する
-4. workbook document moduleを除くimport対象componentがこの3件と一致する
+1. The three files import into an empty macro-enabled workbook.
+2. VBE compilation succeeds.
+3. The scalar smoke test succeeds without adding external references.
+4. The imported non-document component set is exactly those three files.
+
+The GitHub-hosted Excel-free `source-check` does not run the VBE compilation or behavioral tests above. Before a stable tag, a maintainer must collect Windows 64-bit Excel evidence for VBE compilation, behavioral tests, and release smoke according to `docs/release-checklist.md`. The release workflow does not automatically prove this local evidence, and source-check success must not be reported as VBE compilation passed.
+
+The release provides `VBA-Release-vX.Y.Z.zip` and the corresponding `VBA-Release-vX.Y.Z.zip.sha256` under the same tag. The checksum file contains the ZIP SHA-256 and filename.
 
 ## 11. Compile contract
 
-すべてのPublic APIを使用するcompile-only fixtureを保持する。Public名、引数型、戻り値型、fluent chainを変更する場合は、実装より先にfixtureを更新し、Windows 64-bit OfficeのVBE compileを通す。
+Maintain a compile-only fixture that uses every Public API. When changing a public name, argument type, return type, or fluent chain, update the fixture before the implementation and pass VBE compilation on Windows 64-bit Office.
 
-2026-09-21時点で、次のAPI候補はWindows 64-bit OfficeのVBE compileを通過している。
+As of 2026-09-21, the following API candidate passes VBE compilation on Windows 64-bit Office:
 
 ```vb
 Schema.ObjectSchema() _

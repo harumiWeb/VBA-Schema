@@ -48,7 +48,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -77,14 +77,25 @@ jobs:
           RELEASE_TAG: ${{ needs.validate-tag.outputs.tag }}
         run: |
           $assetPath = Join-Path $env:GITHUB_WORKSPACE "artifacts/release/VBA-Release-$($env:RELEASE_TAG).zip"
+          $checksumPath = "$assetPath.sha256"
           if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
             throw "Release asset was not created: $assetPath"
+          }
+          if (-not (Test-Path -LiteralPath $checksumPath -PathType Leaf)) {
+            throw "Release checksum asset was not created: $checksumPath"
+          }
+
+          $actualHash = (Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expectedChecksum = "$actualHash  $([System.IO.Path]::GetFileName($assetPath))"
+          $checksumText = (Get-Content -LiteralPath $checksumPath -Raw).Trim()
+          if ($checksumText -ne $expectedChecksum) {
+            throw "Release checksum does not match the package. expected=$expectedChecksum actual=$checksumText"
           }
 
           $null = & gh release view $env:RELEASE_TAG --json tagName --jq .tagName 2>$null
           $viewExitCode = $LASTEXITCODE
           if ($viewExitCode -eq 0) {
-            & gh release upload $env:RELEASE_TAG $assetPath --clobber
+            & gh release upload $env:RELEASE_TAG $assetPath $checksumPath --clobber
             if ($LASTEXITCODE -ne 0) {
               exit $LASTEXITCODE
             }
@@ -97,6 +108,7 @@ jobs:
             "create",
             $env:RELEASE_TAG,
             $assetPath,
+            $checksumPath,
             "--verify-tag",
             "--generate-notes",
             "--title",

@@ -1,27 +1,27 @@
-# 利用者向けサンプル
+# User-facing samples
 
-このディレクトリには、VBA-Schemaを通常のVBAプロジェクトへ組み込むときの最小構成サンプルを置いています。
+This directory contains minimal examples for adding VBA-Schema to an ordinary VBA project.
 
-## 共通の実行手順
+## Common setup and execution
 
-1. 対象VBAプロジェクトをバックアップする。
-2. `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`をVBEへimportする。
-3. 次のいずれかのディレクトリにある`.bas`を標準Moduleとしてimportする。
-4. VBEのImmediate Windowで、各READMEに記載された`Run...` macroを実行する。
+1. Back up the target VBA project.
+2. Import `Schema.bas`, `VSchema.cls`, and `VValidationResult.cls` into the VBE.
+3. Import the `.bas` file from one of the directories below as a standard module.
+4. Run the `Run...` macro documented in the corresponding README from the VBE Immediate Window.
 
-サンプルはExcel Object Modelを使用しないため、ワークシートを準備せずにImmediate Windowで結果を確認できます。入力fixtureは、Excel表やJSONパーサーの結果を表す`Scripting.Dictionary`／`Collection`をVBA内で組み立てています。
+The samples do not use the Excel Object Model, so results can be inspected from the Immediate Window without preparing a worksheet. Input fixtures are built in VBA as `Scripting.Dictionary` and `Collection` values representing converted Excel or JSON data.
 
-## 一覧
+## Examples
 
-| サンプル | 主な用途 | 主に見るAPI |
+| Sample | Primary use case | Main APIs |
 | --- | --- | --- |
-| [01-order-import](01-order-import/README.md) | 注文・明細の取込前検証 | `ObjectSchema`、`ArrayOf`、`EnumOf`、`DateTime`、`Strict` |
-| [02-settings-validation](02-settings-validation/README.md) | 設定シートやフォーム値の検証 | `EnumOf`、`Pattern`、`OptionalField`、`Nullable` |
-| [03-api-payload](03-api-payload/README.md) | APIレスポンス相当の検証 | nested object、`UnionOf`、`Literal`、`ArrayOf` |
+| [01-order-import](01-order-import/README.md) | Validation before importing orders and line items | `ObjectSchema`, `ArrayOf`, `EnumOf`, `DateTime`, `Strict` |
+| [02-settings-validation](02-settings-validation/README.md) | Validation of settings-sheet and form values | `EnumOf`, `Pattern`, `OptionalField`, `Nullable` |
+| [03-api-payload](03-api-payload/README.md) | Validation of API-response-shaped data | nested objects, `UnionOf`, `Literal`, `ArrayOf` |
 
-## 対応範囲
+## Scope and compatibility
 
-- サンプルはVBA-Schema本体の3ファイルimport payloadには含まれません。
-- `Scripting.Dictionary`と`VBScript.RegExp`はlate bindingで使用します。利用できない環境では、入力エラーではなくenvironment errorになる場合があります。
-- Windows 64-bit OfficeでVBE compileとruntime検証を行っています。macOS OfficeとWindows 32-bit Officeは対応を意識した実装ですが未検証・非保証です。
-- JSONの取得、Excel表からDictionaryへの変換、設定値の読み取り自体はサンプルの責務外です。サンプルは変換後のVBA値をどのように検証するかに集中しています。
+- Samples are not part of the three-file VBA-Schema import payload.
+- `Scripting.Dictionary` and `VBScript.RegExp` are used through late binding. If they are unavailable, the result may be an environment error rather than an input validation failure.
+- VBE compilation and runtime behavior are verified on Windows 64-bit Office. macOS Office and Windows 32-bit Office are compatibility-conscious but not verified or guaranteed.
+- Fetching JSON, converting worksheet data into Dictionaries, and reading settings values are outside the samples' scope. The samples focus on validating already-converted VBA values.

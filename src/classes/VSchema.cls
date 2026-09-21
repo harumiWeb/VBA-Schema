@@ -587,14 +587,8 @@ Private Sub ValidateText(ByVal InputValue As Variant, ByVal Path As String, ByVa
 End Sub
 
 Private Sub ValidateNumber(ByVal InputValue As Variant, ByVal Path As String, ByVal Issues As Collection)
-    If Not IsSupportedNumber(InputValue) Then
+    If Not IsFiniteSupportedNumber(InputValue) Then
         AddIssue Issues, Path, "invalid_type", "The value has an invalid type.", "Number", DescribeValue(InputValue)
-        Exit Sub
-    End If
-
-    Dim decimalValue As Variant
-    If Not TryDecimal(InputValue, decimalValue) Then
-        AddIssue Issues, Path, "invalid_type", "The value is not a finite Number.", "Number", DescribeValue(InputValue)
         Exit Sub
     End If
 
@@ -787,9 +781,8 @@ Private Sub ValidateScalarDefinition(ByVal Candidate As Variant, ByVal Source As
         Err.Raise vbObjectError + 2100, Source, "Literal and Enum values must be scalar values."
     End If
     If category = scalarCategoryNumber Then
-        Dim decimalValue As Variant
-        If Not TryDecimal(Candidate, decimalValue) Then
-            Err.Raise vbObjectError + 2100, Source, "Numeric definition value cannot be represented deterministically."
+        If Not IsFiniteSupportedNumber(Candidate) Then
+            Err.Raise vbObjectError + 2100, Source, "Numeric definition value must be finite."
         End If
     End If
 End Sub
@@ -1340,6 +1333,31 @@ Private Function IsSupportedNumber(ByVal InputValue As Variant) As Boolean
     End Select
 End Function
 
+Private Function IsFiniteSupportedNumber(ByVal InputValue As Variant) As Boolean
+    If Not IsSupportedNumber(InputValue) Then
+        Exit Function
+    End If
+
+    Select Case VarType(InputValue)
+    Case vbSingle, vbDouble
+        On Error GoTo Failed
+        Dim floatingValue As Double
+        floatingValue = CDbl(InputValue)
+        If floatingValue <> floatingValue Then
+            Exit Function
+        End If
+        If floatingValue > 1.7976931348623157E+308 Or floatingValue < -1.7976931348623157E+308 Then
+            Exit Function
+        End If
+    End Select
+
+    IsFiniteSupportedNumber = True
+    Exit Function
+
+Failed:
+    IsFiniteSupportedNumber = False
+End Function
+
 Private Function TryDecimal(ByVal InputValue As Variant, ByRef DecimalValue As Variant) As Boolean
     If Not IsSupportedNumber(InputValue) Then
         Exit Function
@@ -1366,18 +1384,88 @@ Failed:
 End Function
 
 Private Function CompareNumeric(ByVal LeftValue As Variant, ByVal RightValue As Variant, ByVal Source As String) As Long
-    Dim leftDecimal As Variant
-    Dim rightDecimal As Variant
-    If Not TryDecimal(LeftValue, leftDecimal) Or Not TryDecimal(RightValue, rightDecimal) Then
+    If Not IsFiniteSupportedNumber(LeftValue) Or Not IsFiniteSupportedNumber(RightValue) Then
         Err.Raise vbObjectError + 2100, Source, "Numeric comparison would lose precision or overflow."
     End If
 
-    If leftDecimal < rightDecimal Then
-        CompareNumeric = -1
-    ElseIf leftDecimal > rightDecimal Then
-        CompareNumeric = 1
+    Dim leftType As Long
+    Dim rightType As Long
+    leftType = VarType(LeftValue)
+    rightType = VarType(RightValue)
+
+    If leftType = vbDouble Or leftType = vbSingle Then
+        If rightType = vbCurrency Then
+            CompareNumeric = CompareFloatingCurrency(CDbl(LeftValue), CCur(RightValue), Source)
+        Else
+            CompareNumeric = CompareDoubleValues(CDbl(LeftValue), CDbl(RightValue))
+        End If
+        Exit Function
+    End If
+
+    If rightType = vbDouble Or rightType = vbSingle Then
+        If leftType = vbCurrency Then
+            CompareNumeric = -CompareFloatingCurrency(CDbl(RightValue), CCur(LeftValue), Source)
+        Else
+            CompareNumeric = CompareDoubleValues(CDbl(LeftValue), CDbl(RightValue))
+        End If
+        Exit Function
+    End If
+
+    If leftType = vbCurrency Or rightType = vbCurrency Then
+        CompareNumeric = CompareCurrencyValues(CCur(LeftValue), CCur(RightValue))
+        Exit Function
+    End If
+
+    CompareNumeric = CompareDoubleValues(CDbl(LeftValue), CDbl(RightValue))
+End Function
+
+Private Function CompareDoubleValues(ByVal LeftValue As Double, ByVal RightValue As Double) As Long
+    If LeftValue < RightValue Then
+        CompareDoubleValues = -1
+    ElseIf LeftValue > RightValue Then
+        CompareDoubleValues = 1
     Else
-        CompareNumeric = 0
+        CompareDoubleValues = 0
+    End If
+End Function
+
+Private Function CompareCurrencyValues(ByVal LeftValue As Currency, ByVal RightValue As Currency) As Long
+    If LeftValue < RightValue Then
+        CompareCurrencyValues = -1
+    ElseIf LeftValue > RightValue Then
+        CompareCurrencyValues = 1
+    Else
+        CompareCurrencyValues = 0
+    End If
+End Function
+
+Private Function CompareFloatingCurrency(ByVal FloatingValue As Double, ByVal CurrencyValue As Currency, ByVal Source As String) As Long
+    Dim floatingDecimal As Variant
+    Dim currencyDecimal As Variant
+    If TryDecimal(FloatingValue, floatingDecimal) And TryDecimal(CurrencyValue, currencyDecimal) Then
+        CompareFloatingCurrency = CompareDecimalValues(floatingDecimal, currencyDecimal)
+        Exit Function
+    End If
+
+    If FloatingValue > 922337203685477.5 Then
+        CompareFloatingCurrency = 1
+        Exit Function
+    End If
+    If FloatingValue < -922337203685477.5 Then
+        CompareFloatingCurrency = -1
+        Exit Function
+    End If
+
+    Err.Raise vbObjectError + 2100, Source, "Numeric comparison would lose precision or overflow."
+End Function
+
+Private Function CompareDecimalValues(ByVal LeftValue As Variant, ByVal RightValue As Variant) As Long
+    If LeftValue < RightValue Then
+        CompareDecimalValues = -1
+    ElseIf LeftValue > RightValue Then
+        CompareDecimalValues = 1
+    Else
+        CompareDecimalValues = 0
     End If
 End Function
 
@@ -1399,18 +1487,24 @@ OutOfRange:
 End Function
 
 Private Sub ValidateNumericBoundary(ByVal Boundary As Variant, ByVal Source As String)
-    Dim decimalValue As Variant
-    If Not TryDecimal(Boundary, decimalValue) Then
+    If Not IsFiniteSupportedNumber(Boundary) Then
         Err.Raise vbObjectError + 2100, Source, "Number boundary must be a supported finite numeric value."
     End If
 End Sub
 
 Private Function IsWholeNumberValue(ByVal InputValue As Variant) As Boolean
-    Dim decimalValue As Variant
-    If Not TryDecimal(InputValue, decimalValue) Then
+    If Not IsFiniteSupportedNumber(InputValue) Then
         Exit Function
     End If
-    IsWholeNumberValue = (decimalValue = Fix(decimalValue))
+
+    Select Case VarType(InputValue)
+    Case vbByte, vbInteger, vbLong
+        IsWholeNumberValue = True
+    Case vbSingle, vbDouble
+        IsWholeNumberValue = (CDbl(InputValue) = Fix(CDbl(InputValue)))
+    Case vbCurrency
+        IsWholeNumberValue = (CCur(InputValue) = CCur(Fix(CCur(InputValue))))
+    End Select
 End Function
 
 Private Function AppendObjectPath(ByVal BasePath As String, ByVal FieldName As String) As String

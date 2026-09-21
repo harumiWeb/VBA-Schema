@@ -5,6 +5,7 @@
 
 # xlflow
 .xlflow/
-build/
+build/*
+!build/Book.xlsm
 dist/
 artifacts/

@@ -2,3 +2,4 @@
 # deterministic across Windows, macOS, and Linux workstations and runners.
 *.bas text eol=lf
 *.cls text eol=lf
+build/Book.xlsm binary
