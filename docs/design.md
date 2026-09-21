@@ -1618,6 +1618,13 @@ macOS compatibility review（実機が利用可能ならvalidation）
 performance benchmark
 ```
 
+ベンチマークは開発用の補助物であり、`src/modules/Benchmarks` と
+`tools/run-benchmark.ps1` は3-file import payloadへ含めない。Windows 64-bit
+Excelのfixture結果をtracked baselineと比較し、macOS／Windows 32-bitは
+対応可能な実装を維持するが未検証・非保証とする。詳細なfixture、counter、
+threshold、session ownershipは`docs/specs/benchmark-contract.md`と
+`docs/adr/ADR-0008-runtime-benchmark-contract.md`を正とする。
+
 ---
 
 # 43. MVP Definition

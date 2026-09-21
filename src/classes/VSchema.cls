@@ -28,6 +28,9 @@ Private Const arrayStateUninitialized As Long = 0
 Private Const arrayStateOneDimensional As Long = 1
 Private Const arrayStateMultiDimensional As Long = 2
 
+Private Const boundaryKindMinimum As Long = 1
+Private Const boundaryKindMaximum As Long = 2
+
 Private Const scalarCategoryUnsupported As Long = 0
 Private Const scalarCategoryEmpty As Long = 1
 Private Const scalarCategoryNull As Long = 2
@@ -260,60 +263,10 @@ Public Function Min(ByVal Boundary As Variant) As VSchema
     EnsureInitialized "VSchema.Min"
 
     Select Case mKind
-    Case schemaKindText
-        If mHasMin Then
-            Err.Raise vbObjectError + 2101, "VSchema.Min", "Min has already been specified."
-        End If
-
-        Dim textMinimum As Long
-        textMinimum = NormalizeLengthBoundary(Boundary, "VSchema.Min")
-        If mHasLength Then
-            If textMinimum > mLengthValue Then
-                Err.Raise vbObjectError + 2101, "VSchema.Min", "Min is greater than Length."
-            End If
-        End If
-        If mHasMax Then
-            If textMinimum > CLng(mMaxValue) Then
-                Err.Raise vbObjectError + 2101, "VSchema.Min", "Min is greater than Max."
-            End If
-        End If
-        mMinValue = textMinimum
-        mHasMin = True
-
+    Case schemaKindText, schemaKindArray
+        SetLengthBoundary boundaryKindMinimum, Boundary, "VSchema.Min"
     Case schemaKindNumber
-        If mHasMin Then
-            Err.Raise vbObjectError + 2101, "VSchema.Min", "Min has already been specified."
-        End If
-
-        ValidateNumericBoundary Boundary, "VSchema.Min"
-        If mHasMax Then
-            If CompareNumeric(Boundary, mMaxValue, "VSchema.Min") > 0 Then
-                Err.Raise vbObjectError + 2101, "VSchema.Min", "Min is greater than Max."
-            End If
-        End If
-        mMinValue = Boundary
-        mHasMin = True
-
-    Case schemaKindArray
-        If mHasMin Then
-            Err.Raise vbObjectError + 2101, "VSchema.Min", "Min has already been specified."
-        End If
-
-        Dim arrayMinimum As Long
-        arrayMinimum = NormalizeLengthBoundary(Boundary, "VSchema.Min")
-        If mHasLength Then
-            If arrayMinimum > mLengthValue Then
-                Err.Raise vbObjectError + 2101, "VSchema.Min", "Min is greater than Length."
-            End If
-        End If
-        If mHasMax Then
-            If arrayMinimum > CLng(mMaxValue) Then
-                Err.Raise vbObjectError + 2101, "VSchema.Min", "Min is greater than Max."
-            End If
-        End If
-        mMinValue = arrayMinimum
-        mHasMin = True
-
+        SetNumericBoundary boundaryKindMinimum, Boundary, "VSchema.Min"
     Case Else
         Err.Raise vbObjectError + 2101, "VSchema.Min", "Min is not valid for this schema kind."
     End Select
@@ -325,66 +278,89 @@ Public Function Max(ByVal Boundary As Variant) As VSchema
     EnsureInitialized "VSchema.Max"
 
     Select Case mKind
-    Case schemaKindText
-        If mHasMax Then
-            Err.Raise vbObjectError + 2101, "VSchema.Max", "Max has already been specified."
-        End If
-
-        Dim textMaximum As Long
-        textMaximum = NormalizeLengthBoundary(Boundary, "VSchema.Max")
-        If mHasLength Then
-            If textMaximum < mLengthValue Then
-                Err.Raise vbObjectError + 2101, "VSchema.Max", "Max is less than Length."
-            End If
-        End If
-        If mHasMin Then
-            If textMaximum < CLng(mMinValue) Then
-                Err.Raise vbObjectError + 2101, "VSchema.Max", "Max is less than Min."
-            End If
-        End If
-        mMaxValue = textMaximum
-        mHasMax = True
-
+    Case schemaKindText, schemaKindArray
+        SetLengthBoundary boundaryKindMaximum, Boundary, "VSchema.Max"
     Case schemaKindNumber
-        If mHasMax Then
-            Err.Raise vbObjectError + 2101, "VSchema.Max", "Max has already been specified."
-        End If
-
-        ValidateNumericBoundary Boundary, "VSchema.Max"
-        If mHasMin Then
-            If CompareNumeric(mMinValue, Boundary, "VSchema.Max") > 0 Then
-                Err.Raise vbObjectError + 2101, "VSchema.Max", "Max is less than Min."
-            End If
-        End If
-        mMaxValue = Boundary
-        mHasMax = True
-
-    Case schemaKindArray
-        If mHasMax Then
-            Err.Raise vbObjectError + 2101, "VSchema.Max", "Max has already been specified."
-        End If
-
-        Dim arrayMaximum As Long
-        arrayMaximum = NormalizeLengthBoundary(Boundary, "VSchema.Max")
-        If mHasLength Then
-            If arrayMaximum < mLengthValue Then
-                Err.Raise vbObjectError + 2101, "VSchema.Max", "Max is less than Length."
-            End If
-        End If
-        If mHasMin Then
-            If arrayMaximum < CLng(mMinValue) Then
-                Err.Raise vbObjectError + 2101, "VSchema.Max", "Max is less than Min."
-            End If
-        End If
-        mMaxValue = arrayMaximum
-        mHasMax = True
-
+        SetNumericBoundary boundaryKindMaximum, Boundary, "VSchema.Max"
     Case Else
         Err.Raise vbObjectError + 2101, "VSchema.Max", "Max is not valid for this schema kind."
     End Select
 
     Set Max = Me
 End Function
+
+Private Sub SetLengthBoundary(ByVal BoundaryKind As Long, ByVal Boundary As Variant, ByVal Source As String)
+    If BoundaryKind = boundaryKindMinimum And mHasMin Then
+        Err.Raise vbObjectError + 2101, Source, "Min has already been specified."
+    End If
+    If BoundaryKind = boundaryKindMaximum And mHasMax Then
+        Err.Raise vbObjectError + 2101, Source, "Max has already been specified."
+    End If
+
+    Dim normalizedBoundary As Long
+    normalizedBoundary = NormalizeLengthBoundary(Boundary, Source)
+
+    If BoundaryKind = boundaryKindMinimum Then
+        If mHasLength And normalizedBoundary > mLengthValue Then
+            Err.Raise vbObjectError + 2101, Source, "Min is greater than Length."
+        End If
+        If mHasMax And normalizedBoundary > CLng(mMaxValue) Then
+            Err.Raise vbObjectError + 2101, Source, "Min is greater than Max."
+        End If
+        mMinValue = normalizedBoundary
+        mHasMin = True
+        Exit Sub
+    End If
+
+    If BoundaryKind = boundaryKindMaximum Then
+        If mHasLength And normalizedBoundary < mLengthValue Then
+            Err.Raise vbObjectError + 2101, Source, "Max is less than Length."
+        End If
+        If mHasMin And normalizedBoundary < CLng(mMinValue) Then
+            Err.Raise vbObjectError + 2101, Source, "Max is less than Min."
+        End If
+        mMaxValue = normalizedBoundary
+        mHasMax = True
+        Exit Sub
+    End If
+
+    Err.Raise vbObjectError + 2299, Source, "Invalid boundary kind."
+End Sub
+
+Private Sub SetNumericBoundary(ByVal BoundaryKind As Long, ByVal Boundary As Variant, ByVal Source As String)
+    If BoundaryKind = boundaryKindMinimum And mHasMin Then
+        Err.Raise vbObjectError + 2101, Source, "Min has already been specified."
+    End If
+    If BoundaryKind = boundaryKindMaximum And mHasMax Then
+        Err.Raise vbObjectError + 2101, Source, "Max has already been specified."
+    End If
+
+    ValidateNumericBoundary Boundary, Source
+
+    If BoundaryKind = boundaryKindMinimum Then
+        If mHasMax Then
+            If CompareNumeric(Boundary, mMaxValue, Source) > 0 Then
+                Err.Raise vbObjectError + 2101, Source, "Min is greater than Max."
+            End If
+        End If
+        mMinValue = Boundary
+        mHasMin = True
+        Exit Sub
+    End If
+
+    If BoundaryKind = boundaryKindMaximum Then
+        If mHasMin Then
+            If CompareNumeric(mMinValue, Boundary, Source) > 0 Then
+                Err.Raise vbObjectError + 2101, Source, "Max is less than Min."
+            End If
+        End If
+        mMaxValue = Boundary
+        mHasMax = True
+        Exit Sub
+    End If
+
+    Err.Raise vbObjectError + 2299, Source, "Invalid boundary kind."
+End Sub
 
 Public Function Length(ByVal RequiredLength As Variant) As VSchema
     EnsureInitialized "VSchema.Length"
@@ -891,10 +867,18 @@ Private Sub ValidateObject(ByVal InputValue As Variant, ByVal Path As String, By
     Dim fieldValue As Variant
     Dim childPath As String
 
+    Dim invalidKeys As Collection
+    Set invalidKeys = New Collection
+    Dim unknownKeys As Collection
+    Set unknownKeys = New Collection
+    Dim keyIndex As Object
+    Set keyIndex = BuildDictionaryKeyIndex(inputDictionary, invalidKeys, unknownKeys)
+
     For fieldIndex = 1 To mFieldOrder.Count
         fieldName = CStr(mFieldOrder.Item(fieldIndex))
         Set fieldSchema = mFields.Item(fieldName)
-        If TryFindDictionaryKey(inputDictionary, fieldName, matchedKey) Then
+        If keyIndex.Exists(fieldName) Then
+            matchedKey = keyIndex.Item(fieldName)
             ReadDictionaryValue inputDictionary, matchedKey, "VSchema.ValidateObject", fieldValue
             childPath = AppendObjectPath(Path, fieldName)
             Call fieldSchema.InternalValidateAtPath(fieldValue, childPath, Issues)
@@ -902,12 +886,6 @@ Private Sub ValidateObject(ByVal InputValue As Variant, ByVal Path As String, By
             Call fieldSchema.InternalValidateMissing(AppendObjectPath(Path, fieldName), Issues)
         End If
     Next fieldIndex
-
-    Dim invalidKeys As Collection
-    Set invalidKeys = New Collection
-    Dim unknownKeys As Collection
-    Set unknownKeys = New Collection
-    CollectSpecialKeys inputDictionary, invalidKeys, unknownKeys
 
     Dim sortedValue As Variant
     For Each sortedValue In SortedStrings(invalidKeys)
@@ -1159,28 +1137,6 @@ DictionaryInvalid:
     Set GetDictionary = Nothing
 End Function
 
-Private Function TryFindDictionaryKey(ByVal dictionary As Object, ByVal FieldName As String, ByRef MatchedKey As Variant) As Boolean
-    If dictionary.Count = 0 Then
-        Exit Function
-    End If
-
-    Dim keys As Variant
-    keys = dictionary.Keys
-    If Not IsArray(keys) Then
-        Exit Function
-    End If
-    Dim index As Long
-    For index = LBound(keys) To UBound(keys)
-        If VarType(keys(index)) = vbString Then
-            If StrComp(CStr(keys(index)), FieldName, vbBinaryCompare) = 0 Then
-                MatchedKey = keys(index)
-                TryFindDictionaryKey = True
-                Exit Function
-            End If
-        End If
-    Next index
-End Function
-
 Private Sub ReadDictionaryValue(ByVal dictionary As Object, ByVal Key As Variant, ByVal Source As String, ByRef OutputValue As Variant)
     On Error GoTo DictionaryUnavailable
 
@@ -1195,27 +1151,47 @@ DictionaryUnavailable:
     Err.Raise vbObjectError + 2200, Source, "Scripting.Dictionary item access failed."
 End Sub
 
-Private Sub CollectSpecialKeys(ByVal dictionary As Object, ByVal InvalidKeys As Collection, ByVal UnknownKeys As Collection)
+Private Function BuildDictionaryKeyIndex(ByVal dictionary As Object, ByVal InvalidKeys As Collection, ByVal UnknownKeys As Collection) As Object
+    Dim keyIndex As Object
+    Set keyIndex = NewDictionary("VSchema.BuildDictionaryKeyIndex")
+
     If dictionary.Count = 0 Then
-        Exit Sub
+        Set BuildDictionaryKeyIndex = keyIndex
+        Exit Function
     End If
 
+    On Error GoTo DictionaryUnavailable
     Dim keys As Variant
     keys = dictionary.Keys
     If Not IsArray(keys) Then
-        Exit Sub
+        Err.Raise vbObjectError + 2200, "VSchema.BuildDictionaryKeyIndex", "Scripting.Dictionary keys are unavailable."
     End If
+
     Dim index As Long
     Dim keyValue As Variant
+    Dim stringKey As String
     For index = LBound(keys) To UBound(keys)
         keyValue = keys(index)
         If VarType(keyValue) <> vbString Then
             InvalidKeys.Add DescribeValue(keyValue)
-        ElseIf Not mFields.Exists(CStr(keyValue)) Then
-            UnknownKeys.Add CStr(keyValue)
+        Else
+            stringKey = CStr(keyValue)
+            If Not keyIndex.Exists(stringKey) Then
+                keyIndex.Add stringKey, keyValue
+            End If
+            If Not mFields.Exists(stringKey) Then
+                UnknownKeys.Add stringKey
+            End If
         End If
     Next index
-End Sub
+
+    On Error GoTo 0
+    Set BuildDictionaryKeyIndex = keyIndex
+    Exit Function
+
+DictionaryUnavailable:
+    Err.Raise vbObjectError + 2200, "VSchema.BuildDictionaryKeyIndex", "Scripting.Dictionary keys are unavailable."
+End Function
 
 Private Function SortedStrings(ByVal Values As Collection) As Collection
     Dim sorted As Collection

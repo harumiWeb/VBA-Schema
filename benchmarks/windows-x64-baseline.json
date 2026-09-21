@@ -1,0 +1,42 @@
+{
+    "schema_version":  1,
+    "environment_class":  "windows-x64-office",
+    "fixture_contract":  {
+                             "warmup_iterations":  1,
+                             "iterations":  5
+                         },
+    "fixtures":  [
+                     {
+                         "fixture_id":  "object_1000_fields_success",
+                         "median_ms":  328.125,
+                         "validation_count":  50000,
+                         "issue_count":  0,
+                         "warmup_iterations":  1,
+                         "iterations":  5
+                     },
+                     {
+                         "fixture_id":  "object_1000_fields_issues",
+                         "median_ms":  1324.21875,
+                         "validation_count":  50000,
+                         "issue_count":  5000,
+                         "warmup_iterations":  1,
+                         "iterations":  5
+                     },
+                     {
+                         "fixture_id":  "scalar_10000_success",
+                         "median_ms":  152.34375,
+                         "validation_count":  50000,
+                         "issue_count":  0,
+                         "warmup_iterations":  1,
+                         "iterations":  5
+                     },
+                     {
+                         "fixture_id":  "scalar_10000_issues",
+                         "median_ms":  8906.25,
+                         "validation_count":  50000,
+                         "issue_count":  50000,
+                         "warmup_iterations":  1,
+                         "iterations":  5
+                     }
+                 ]
+}

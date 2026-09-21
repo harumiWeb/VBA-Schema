@@ -91,7 +91,9 @@ try {
         Copy-Item -LiteralPath (Join-Path $payloadPath $name) -Destination $destination -Force
     }
 
-    $initialPush = Invoke-Xlflow @("push", "--fast", "--json")
+    # Do not use --fast here: a fresh probe can share xlflow's push-state cache
+    # with another checkout and incorrectly skip the first import.
+    $initialPush = Invoke-Xlflow @("push", "--json")
     if ($initialPush -notmatch 'imported 3 source file\(s\)') {
         throw "Release payload push did not import exactly three source files.`n$initialPush"
     }
@@ -122,11 +124,11 @@ End Sub
 '@
     $smokePath = Assert-WithinProbe (Join-Path $modulesPath "ReleaseSmoke.bas")
     Set-Content -LiteralPath $smokePath -Value $smokeSource -Encoding ascii
-    Invoke-Xlflow @("push", "--fast", "--json") | Out-Null
+    Invoke-Xlflow @("push", "--json") | Out-Null
     Invoke-Xlflow @("run", "ReleaseSmoke.ScalarSmoke", "--diagnostic", "--headless", "--json") | Out-Null
 
     Remove-Item -LiteralPath $smokePath -Force
-    $finalPush = Invoke-Xlflow @("push", "--fast", "--json")
+    $finalPush = Invoke-Xlflow @("push", "--json")
     if ($finalPush -notmatch 'imported 3 source file\(s\)') {
         throw "Final release payload push did not return to exactly three source files.`n$finalPush"
     }

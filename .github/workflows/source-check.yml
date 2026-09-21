@@ -31,9 +31,21 @@ jobs:
       - name: Analyze source
         run: xlflow analyze --json
 
+      - name: Check production compatibility hygiene
+        shell: pwsh
+        run: ./tools/check-production-hygiene.ps1
+
       - name: Check VBA formatting
         shell: pwsh
         run: ./tools/check-format.ps1
 
       - name: Discover VBA tests
         run: xlflow test list --json
+
+      - name: Stage release payload
+        shell: pwsh
+        run: ./tools/release-stage.ps1
+
+      - name: Verify release payload
+        shell: pwsh
+        run: ./tools/release-verify.ps1

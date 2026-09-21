@@ -12,12 +12,18 @@ $targetPaths = @(
     "src\modules\Tests\PublicApiCompile.bas"
 )
 
-foreach ($testFile in @("src\modules\Tests", "src\modules\Benchmarks")) {
+foreach ($testFile in @("src\modules\Tests")) {
     $testDirectory = Join-Path $repoRoot $testFile
     if (Test-Path -LiteralPath $testDirectory -PathType Container) {
         Get-ChildItem -LiteralPath $testDirectory -File -Filter "Test*.bas" |
             ForEach-Object { $targetPaths += Join-Path $testFile $_.Name }
     }
+}
+
+$benchmarkDirectory = Join-Path $repoRoot "src\modules\Benchmarks"
+if (Test-Path -LiteralPath $benchmarkDirectory -PathType Container) {
+    Get-ChildItem -LiteralPath $benchmarkDirectory -File -Filter "*.bas" |
+        ForEach-Object { $targetPaths += Join-Path "src\modules\Benchmarks" $_.Name }
 }
 
 $existingPaths = @($targetPaths | Where-Object { Test-Path -LiteralPath (Join-Path $repoRoot $_) -PathType Leaf })

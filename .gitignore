@@ -7,3 +7,4 @@
 .xlflow/
 build/
 dist/
+artifacts/

@@ -23,6 +23,11 @@ tasks:
     cmds:
       - xlflow analyze --json
 
+  quality-audit:
+    desc: Check compatibility-sensitive production patterns
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-production-hygiene.ps1
+
   fmt-check:
     desc: Check VBA formatting without modifying source
     cmds:
@@ -43,6 +48,7 @@ tasks:
     deps:
       - lint
       - analyze
+      - quality-audit
       - fmt-check
       - test-list
 
@@ -67,3 +73,8 @@ tasks:
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-stage.ps1
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-verify.ps1
       - powershell -NoProfile -ExecutionPolicy Bypass -File tools/release-smoke.ps1
+
+  benchmark:
+    desc: Run runtime validation benchmarks in a dedicated managed Excel session
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-benchmark.ps1

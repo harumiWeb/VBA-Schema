@@ -20,8 +20,11 @@ root: .
 │       └── source-check.yml
 ├── dist/
 │   └── VBA-Schema/ (generated, ignored)
+├── benchmarks/
+│   └── windows-x64-baseline.json
 ├── docs/
 │   ├── adr/
+│   │   ├── ADR-0008-runtime-benchmark-contract.md
 │   │   ├── ADR-0005-literal-enum-pattern-email-boundary.md
 │   │   ├── ADR-0006-union-branch-ownership-and-error-boundary.md
 │   │   ├── ADR-0007-release-and-ci-boundary.md
@@ -30,14 +33,19 @@ root: .
 │   │   ├── ADR-0003-object-dictionary-and-schema-cycle-boundary.md
 │   │   └── ADR-0004-array-collection-sequence-boundary.md
 │   ├── specs/
+│   │   ├── benchmark-contract.md
 │   │   └── v1-contract.md
 │   ├── xlflow-issues/
+│   │   ├── 20260921-fmt-parser-recovery.md
+│   │   └── 20260921-push-state-cache-fresh-session.md
 │   └── design.md
 ├── src/
 │   ├── classes/
 │   │   ├── VSchema.cls
 │   │   └── VValidationResult.cls
 │   ├── modules/
+│   │   ├── Benchmarks/
+│   │   │   └── ValidationBenchmarks.bas
 │   │   ├── Tests/
 │   │   │   ├── PublicApiCompile.bas
 │   │   │   ├── TestLiteral.bas
@@ -68,6 +76,8 @@ root: .
 │       └── ThisWorkbook.bas
 ├── tools/
 │   ├── check-format.ps1
+│   ├── check-production-hygiene.ps1
+│   ├── run-benchmark.ps1
 │   ├── release-stage.ps1
 │   ├── release-smoke.ps1
 │   ├── release-verify.ps1

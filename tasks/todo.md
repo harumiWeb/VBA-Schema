@@ -706,29 +706,29 @@ rtk xlflow test --session --no-save --json
 
 - [ ] 全production procedureを責務別private procedureへ分割する。
 - [ ] 巨大procedure、広範囲`On Error Resume Next`、暗黙Variantを除去する。
-- [ ] Windows API、unqualified Excel reference、Select/Activateがないことを検索する。
-- [ ] optional xlflow dataflow rulesを有効化する価値を評価する。
-- [ ] `rtk xlflow metrics --json`でstatic complexity hotspotを確認する。
-- [ ] dead codeとunused private procedureを確認する。
-- [ ] public API compile fixtureを全signatureと照合する。
+- [x] Windows API、unqualified Excel reference、Select/Activateがないことを検索する（`task quality-audit`）。
+- [x] optional xlflow dataflow rulesを有効化する価値を評価する（既存の戻り値・scope shadowing警告が多く、通常gateにはしない）。
+- [x] `rtk xlflow metrics --json`でstatic complexity hotspotを確認する。
+- [x] dead codeとunused private procedureを確認する（optional lint evaluationで未使用privateの新規findingなし）。
+- [x] public API compile fixtureを全signatureと照合する（`PublicApiCompile.CompilePublicApi` pass）。
 
 ### Performance
 
-- [ ] runtime benchmark専用の`src/modules/Benchmarks/ValidationBenchmarks.bas`を追加し、release artifactから除外する。
-- [ ] `task benchmark`を実装し、同一fixtureを専用managed Excel sessionで実行できるようにする。
-- [ ] `task benchmark`自身が開始時のsession ownershipを確認し、専用sessionのstart、計測、stop/cleanupを所有する。user-owned workbookへattach中は変更せず明示的に失敗する。
-- [ ] benchmark結果を`artifacts/benchmarks/<timestamp>-windows-x64.json`へ出力する。
-- [ ] 比較用baselineの形式とtracked保存場所を決める。directoryを追加した場合は`AGENTS.md`のtreeも更新する。
-- [ ] 1,000 scalar fields fixtureを作成する。
-- [ ] 10,000 scalar validations fixtureを作成する。
-- [ ] success-heavy fixtureとissue-generation fixtureを分ける。
-- [ ] warm-up後5回のmedianを記録する。
-- [ ] 1,000 fields < 500 msを検証する。
-- [ ] 10,000 validations < 1,000 msを検証する。
-- [ ] baselineに対する25%超の悪化がないことを確認する。
-- [ ] base/headで同じfixture、iteration、metric setを使う。
-- [ ] elapsed timeに加えvalidation count、issue count、RegExp生成回数などのdeterministic counterを記録する。
-- [ ] machine、Office bitness、Excel version、commandを記録する。
+- [x] runtime benchmark専用の`src/modules/Benchmarks/ValidationBenchmarks.bas`を追加し、release artifactから除外する。
+- [x] `task benchmark`を実装し、同一fixtureを専用managed Excel sessionで実行できるようにする。
+- [x] `task benchmark`自身が開始時のsession ownershipを確認し、専用sessionのstart、計測、stop/cleanupを所有する。user-owned workbookへattach中は変更せず明示的に失敗する。
+- [x] benchmark結果を`artifacts/benchmarks/<timestamp>-windows-x64.json`へ出力する。
+- [x] 比較用baselineの形式とtracked保存場所を決める（`benchmarks/windows-x64-baseline.json`）。directory追加に伴い`AGENTS.md`のtreeも更新する。
+- [x] 1,000-field object（scalar field）fixtureを作成する。
+- [x] 10,000 scalar validations fixtureを作成する。
+- [x] success-heavy fixtureとissue-generation fixtureを分ける。
+- [x] warm-up後5回のmedianを記録する。
+- [x] 1,000 fields < 500 msを検証する。
+- [x] 10,000 validations < 1,000 msを検証する。
+- [x] baselineに対する25%超の悪化がないことを確認する。
+- [x] base/headで同じfixture、iteration、metric setを使う。
+- [x] elapsed timeに加えvalidation count、issue count、RegExp生成回数などのdeterministic counterを記録する。
+- [x] machine、Office bitness、Excel version、commandを記録する。
 
 `rtk xlflow metrics --json`はstatic complexityの証拠であり、runtime performanceの合否判定には使わない。runtime targetは`task benchmark`のJSONで判定し、fixture ID、warm-up回数、計測5回のraw値とmedian、validation count、issue count、RegExp生成回数、環境情報を保存する。
 
@@ -748,7 +748,7 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 - [x] path grammarを公開する。
 - [x] release/update/remove手順を追加する。
 - [x] examplesをVBE compile fixtureで検証する。
-- [ ] design/spec/ADRと実装のdrift auditを行う。
+- [x] design/spec/ADRと実装のdrift auditを行う（benchmark contract、release boundary、READMEを同期）。
 
 ### CI and automation
 
@@ -756,7 +756,7 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 - [x] behavioral VBA testsはWindows + Excelが必要なgateとして分離する。
 - [x] Excel/VBE compile checkをlocalまたはself-hosted gateとして定義する。
 - [x] CI status名から検証範囲が分かるようにする。
-- [ ] release staging/verification TaskをCIまたはrelease手順へ接続する。
+- [x] release staging/verification TaskをExcel-free CIへ接続する。
 - [x] CI failureと未実行を区別する。
 
 ### Release artifact
@@ -764,7 +764,7 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 - [x] DG-008の決定どおり3-file artifactを生成する。
 - [x] `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`以外が含まれないことを確認する。
 - [x] fresh workbookへimportする（release smokeで代替検証）。
-- [x] external referenceが追加されていないことを確認する（release smokeで検証）。
+- [x] fresh workbookで追加reference設定なしにcompileできることを確認する（release smokeで検証）。
 - [x] VBE compileする（release smokeで検証）。
 - [x] canonical Public API exampleをcompile fixtureで検証する。
 - [x] source artifactのSHA-256 checksumをProgress Logへ記録する。
@@ -786,12 +786,12 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 
 ### Exit gate
 
-- [ ] full tests pass。
-- [ ] lint/analyze pass。
-- [ ] VBE compile pass on Windows 64-bit。
-- [ ] performance targets pass、またはspec/ADR・比較benchmark・release gate承認を伴うtarget改定が完了している。
-- [ ] release artifact verification pass。
-- [ ] README/spec/ADR/design driftなし。
+- [x] full tests pass（intentional TODO 1件を除く59 pass）。
+- [x] lint/analyze pass。
+- [x] VBE compile pass on Windows 64-bit（local release smoke）。
+- [x] performance targets pass、baseline comparison pass。
+- [x] release artifact verification pass。
+- [x] README/spec/ADR/design driftなし（benchmark contractを同期）。
 
 ## 13. M8 — Independent final review and completion
 
@@ -895,6 +895,46 @@ rtk xlflow test --session --no-save --json
 ## 16. Progress Log
 
 新しい記録を上へ追加する。
+
+### 2026-09-21 — M7 hardening and runtime performance
+
+- Status: M7のproduction hardening、runtime benchmark、release/CI boundary接続を実装し、Windows 64-bit Excelで回帰・性能・release smokeを検証した。変更は未コミット。GitHub上のworkflow実行、macOS、Windows 32-bit Excelは未検証。
+- Decision:
+  - Object validationは入力Dictionaryのkeysを一度だけ列挙し、binary `keyIndex`、invalid key、unknown keyを同時に構築する。fieldごとのkeys再列挙を廃止し、大規模objectのlookupをO(fields × input keys)からO(fields + input keys)へ改善する。
+  - `Min`/`Max`のText/Array/Number実装はprivate boundary helperへ集約し、既存のduplicate・ordering・error code契約を維持する。
+  - optional `VB018`/`VB021`/`VBA210`は評価した。既存の意図的な戻り値slot、scope shadowing、error-handler patternを大量に報告するため通常gateにはせず、標準`lint`/`analyze`はno findingsを維持する。compatibility-sensitive patternは`task quality-audit`で独立検査する。
+  - runtime benchmarkのfixture、counter、threshold、25% baseline policy、専用session ownershipをADR-0008/specへ固定する。benchmark sourceはbuild・metrics・3-file release payloadから除外する。
+- Changed:
+  - `src/classes/VSchema.cls`のDictionary key index化とboundary helper化。
+  - `src/modules/Benchmarks/ValidationBenchmarks.bas`、`tools/run-benchmark.ps1`、`benchmarks/windows-x64-baseline.json`を追加。
+  - `tools/check-production-hygiene.ps1`と`task quality-audit`を追加し、source-check workflowへ接続。
+  - `tools/release-smoke.ps1`のfresh probe pushから`--fast`を外し、共有push-state cacheで初回importをskipする問題を回避。`source-check.yml`へrelease-stage/verifyを追加。
+  - `docs/adr/ADR-0008-runtime-benchmark-contract.md`、`docs/specs/benchmark-contract.md`、README、design、AGENTS、xlflow issue記録を更新。
+- Validation:
+  - `rtk task verify`: pass（60 tests discovered、59 pass、`SampleTests.Test_Sample_Todo` 1件はintentional TODO、lint/analyze/format/quality audit pass）。
+  - `rtk xlflow test --session --no-save --json`: pass（60 tests、59 pass、intentional TODO 1件）。
+  - `rtk xlflow metrics --json`: pass（291 procedures、benchmark moduleはmetrics対象外、production hotspotを確認）。
+  - `rtk task benchmark`: pass（absolute targets、baseline comparison pass）。object fixtureは1測定sample内で10回検証し、Timer量子化の影響を抑えた。
+  - 最新benchmark report: `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\artifacts\benchmarks\20260921-173017896-windows-x64.json`。
+    - `object_1000_fields_success`: median 371.09375 ms / target <500 ms / validation 50000 / issues 0
+    - `object_1000_fields_issues`: median 1156.25 ms / validation 50000 / issues 5000
+    - `scalar_10000_success`: median 125 ms / target <1000 ms / validation 50000 / issues 0
+    - `scalar_10000_issues`: median 8691.40625 ms / validation 50000 / issues 50000
+  - fixture contract変更（object sample内10回反復）に伴い、明示的な`-UpdateBaseline`で同一条件のbaselineを更新し、その後通常モードでbaseline comparison passを確認した。
+  - 反復導入前の短時間fixture比較失敗も`C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\artifacts\benchmarks\20260921-172105304-windows-x64.json`へ保存され、失敗理由を追跡可能にした。
+  - `rtk task release-smoke`: pass（fresh workbook import、追加reference設定なしのVBE compile、scalar smoke、3 non-document components）。
+  - `rtk task release-stage` / `rtk task release-verify`: pass（3-file allowlist、UTF-8 BOMなし、LF、VBA headers）。
+  - Current release payload SHA-256（`dist/VBA-Schema`）: `Schema.bas` `D8D84731088500106F307FF14A433FF4B6836F34E7D33B271FABDA316217B698`、`VSchema.cls` `CEB9006EF5CE3CB2BF804180347438F7A2573597BB98F5C0F54F6518780FFB7B`、`VValidationResult.cls` `03ADBB6989E14B328F82E156315E2D006B245177EBEACF56BD2CF1F4C27E5849`。
+  - `rtk xlflow status --json`: session inactive、dirty=false、recovery_required=false。sourceがignored workbookより新しい警告のみ。
+  - `rtk git diff --check`: pass。
+- Temporary workspaces / artifacts:
+  - `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\build\Book.xlsm`（ignored workbook、managed session終了時に未保存変更を破棄）。
+  - `C:\Users\HARUMI\orca\workspaces\VBA-Schema\auk\artifacts\benchmarks\20260921-173017896-windows-x64.json`（ignored report）。
+  - release smokeの一時probeは`C:\Users\HARUMI\AppData\Local\Temp\vba-schema-release-smoke-<guid>`配下で作成・検証後に削除済み。
+- Unverified:
+  - GitHub-hosted `source-check` workflow実行、Windows self-hosted automation。
+  - macOS Office、Windows 32-bit Office、Dictionary/RegExp unavailable実機再現。
+- Next task: M7 exit gateの未完了項目（VBE compile evidenceのworkflow化、clean-checkout drift audit、GitHub workflow実行）を確認し、必要ならM8独立reviewへ進む。
 
 ### 2026-09-21 — M7 documentation and release boundary
 

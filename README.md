@@ -76,9 +76,11 @@ Windowsでのsource checksは次で実行できます。
 ```powershell
 rtk task verify
 rtk task release-smoke
+rtk task benchmark
 ```
 
 VBEを使うbehavioral testsとcompile fixtureはxlflowのmanaged Excel sessionで実行します。release payloadは `rtk task release-stage` で生成し、`rtk task release-verify` で3ファイルallowlist、encoding、class headerを検証します。
+`rtk task benchmark`はWindows 64-bit Excel専用の性能検証で、専用managed sessionを開始・破棄し、結果を `artifacts/benchmarks` に保存します。macOSとWindows 32-bit Excelの性能値は未検証です。
 
 ## License
 
