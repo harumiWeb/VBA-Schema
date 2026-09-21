@@ -74,6 +74,7 @@ docs/specs/v1-contract.md
 - xlflow configured workbook: `build/Book.xlsm`
 - xlflow session: inactive
 - M7、MITライセンス、M8レビュー指摘（release staging安全性・benchmark環境ゲート）はコミット済み。独立Pass 2のreview targetは`f3d0434`で、blocking findingなし。
+- CI hardening: `0fd4411`、`417b724`、`f273767`、`7f04898`で固定xlflow実体、VBA checkout改行、release safety probeの終了コードを修正済み。
 
 ### 2.2 Confirmed evidence
 
@@ -83,6 +84,7 @@ docs/specs/v1-contract.md
 - `rtk xlflow lint --json`: success
 - `rtk xlflow analyze --json`: success
 - `rtk xlflow test list --json`: focused testを含む60件を検出（23 source files）
+- GitHub Actions `source-check` run `35587365802`: success（pinned xlflow install/version check、lint、analyze、production hygiene、LF format check、test discovery、release stage/verify、安全性テスト、benchmark環境ガード）
 - `rtk xlflow test --session --no-save --json`: 59 pass、1 intentional TODO
 - `rtk xlflow run PublicApiCompile.CompilePublicApi --diagnostic --headless --session --no-save --json`: pass
 - `rtk task release-smoke`: fresh workbookへの3-file import、VBE compile、scalar smoke、non-document component 3件確認がpass
@@ -862,6 +864,23 @@ rtk xlflow test --session --no-save --json
 - Unsupported/unverified: local and remote format gate failureはun-pinned xlflow/cache状態を含む環境差異として未解決。GitHub target workflow、Excel/VBE target CI、Windows 32-bit/macOS実機、clean checkout再現は未検証。
 - Implementation commit: `3593e01 fix: harden release and benchmark gates`。M7/MIT既存commitは`57e82c6`、`8ec96e7`。release payload SHA-256はM7記録を正とする。
 - Next task: clean checkout再現とGitHub/target CI実行環境が利用可能になった時点で、未検証項目を別gateとして確認する。実装上のM8 blocking findingは残っていない。
+
+### 2026-09-21 — CI source-check remediation
+
+- Status: 直近push後のGitHub Actions失敗を、実行環境差異とPowerShell終了コードの問題に分離して修正。現在のbranchはcleanで、修正は`review-vba-schema-design`へpush済み。
+- Root causes:
+  - `GITHUB_PATH`の解決順序により、意図した固定xlflow以外を呼び得た。`go install`生成物はversion metadataが`dev/none`になるため、固定release asset（v0.32.1 / commit `52e93661cdc830592de88e047cbeed3bb2ac4488`）を専用binへ展開し、`version --json`で検証する方式へ変更。
+  - Windows checkoutのCRLF化で`xlflow fmt`が18ファイルを一律変更扱いにしたため、`.gitattributes`で`.bas`／`.cls`の`eol=lf`を固定。
+  - `test-release-stage-safety.ps1`は意図的な子プロセス失敗の`$LASTEXITCODE`を最後に残していたため、成功時の`exit 0`を追加。
+- Changed: `.github/workflows/source-check.yml`、`.gitattributes`、`tools/check-format.ps1`、`tools/test-release-stage-safety.ps1`、`tasks/lessons.md`。
+- Commits: `0fd4411`、`417b724`、`f273767`、`7f04898`。
+- Verification:
+  - `rtk actionlint`: pass。
+  - `rtk task verify`: pass（60 tests discovered、lint/analyze/format/quality/release safety/benchmark guard）。
+  - Windows `core.autocrlf=true`相当の一時clone（`C:\temp\vba-schema-eol-test-f273767`）でVBA sourceがLFとなること、固定xlflow `fmt --check` 18 files passを確認。
+  - GitHub Actions `source-check` run `35587365802`: success（24s、全step pass）。
+- Unverified: GitHub-hosted CIでのExcel/VBE compile、Windows 32-bit/macOS Office、Dictionary/RegExp unavailable実機再現は引き続き未検証。
+- Next task: source-check成功を基準に、残るExcel/VBE compile ownershipまたはrelease作業を別gateとして進める。
 
 ### 2026-09-21 — M8 independent review / Pass 1 remediation
 
