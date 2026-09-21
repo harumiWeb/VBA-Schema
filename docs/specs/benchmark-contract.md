@@ -24,6 +24,9 @@ fixtures).
 
 - Current tracked baseline: `benchmarks/windows-x64-baseline.json`.
 - Local timestamped reports: `artifacts/benchmarks/<timestamp>-windows-x64.json`.
+- The report `command` field records the canonical public entry point
+  `task benchmark`; direct invocation of `tools/run-benchmark.ps1` uses the
+  same contract but does not change this canonical label.
 - A success target must pass absolutely. Every fixture must also remain within
   25% of the corresponding baseline median when a baseline is available.
 - Baseline updates use `tools/run-benchmark.ps1 -UpdateBaseline` only after a

@@ -67,13 +67,13 @@ docs/specs/v1-contract.md
 ### 2.1 Repository state
 
 - Branch: `review-vba-schema-design`
-- Baseline HEAD: `8dd8050 docs: record independent review remediation`
+- Baseline implementation: `3593e01 fix: harden release and benchmark gates`
 - production implementation: scalar core（AnyValue/Text/Number/Bool/DateTime、共通modifier、Result）、Object（Field／Strict／nested path／cycle preflight）、Array/Collection（一次元配列、logical index、length constraints）、Literal/Enum/Pattern/Email、Unionを実装済み
 - production files: `Schema.bas`、`VSchema.cls`、`VValidationResult.cls`が存在
 - 現在のtest: focused test 55件 + xlflow scaffold 5件 + compile-only fixture（test discovery対象外）。実行結果は59 pass、1 intentional TODO
 - xlflow configured workbook: `build/Book.xlsm`
 - xlflow session: inactive
-- M7、MITライセンス、M8レビュー指摘（release staging安全性・benchmark環境ゲート）の変更はコミット済みで、次の独立Pass 2レビュー対象は`8dd8050`である。
+- M7、MITライセンス、M8レビュー指摘（release staging安全性・benchmark環境ゲート）はコミット済み。独立Pass 2のreview targetは`f3d0434`で、blocking findingなし。
 
 ### 2.2 Confirmed evidence
 
@@ -279,12 +279,12 @@ M0 Design baseline and decision gates
 
 ### Tasks
 
-- [ ] 現在の`docs/design.md`、spec、ADR-0001/0002、本ロードマップをまとめてreviewする。
-- [ ] `docs/specs/v1-contract.md`の全Public signatureとcompile fixture候補が一致することを再確認する。
-- [ ] design内に旧API名（`Schema.String`、`.Optional`、`.Integer`等）が残っていないことを検索する。
-- [ ] v1 APIとfuture API（Parse、Strip、Positive/Negative等）の境界を確認する。
+- [x] 現在の`docs/design.md`、spec、ADR-0001/0002、本ロードマップをまとめてreviewする。
+- [x] `docs/specs/v1-contract.md`の全Public signatureとcompile fixture候補が一致することを再確認する。
+- [x] design内に旧API名（`Schema.String`、`.Optional`、`.Integer`等）が残っていないことを検索する。
+- [x] v1 APIとfuture API（Parse、Strip、Positive/Negative等）の境界を確認する。
 - [x] Decision GateのうちM1開始前に必要なDG-001とDG-010を解決する。
-- [ ] 設計変更をcommitし、baseline SHAを本書へ記録する。
+- [x] 設計変更をcommitし、baseline SHAを本書へ記録する。
 
 ### Verification
 
@@ -303,11 +303,11 @@ rtk xlflow analyze --json
 
 ### Exit gate
 
-- [ ] spec/ADR/design間のHigh/Medium矛盾がない。
+- [x] spec/ADR/design間のHigh/Medium矛盾がない。
 - [x] DG-001が解決済み。
 - [x] DG-010が解決済み。
-- [ ] baseline commit SHAがCurrent Checkpointに反映済み。
-- [ ] macOS/32-bitの未検証表現が全資料で一致している。
+- [x] baseline commit SHAがCurrent Checkpointに反映済み。
+- [x] macOS/32-bitの未検証表現が全資料で一致している。
 
 ## 6. M1 — Development, test, and release harness
 
@@ -673,7 +673,7 @@ rtk xlflow test --session --no-save --json
 - [x] runtime benchmark専用の`src/modules/Benchmarks/ValidationBenchmarks.bas`を追加し、release artifactから除外する。
 - [x] `task benchmark`を実装し、同一fixtureを専用managed Excel sessionで実行できるようにする。
 - [x] `task benchmark`自身が開始時のsession ownershipを確認し、専用sessionのstart、計測、stop/cleanupを所有する。user-owned workbookへattach中は変更せず明示的に失敗する。
-- [x] benchmark結果を`artifacts/benchmarks/<timestamp>-windows-x64.json`へ出力する。
+- [x] benchmark結果をx64実行時は`artifacts/benchmarks/<timestamp>-windows-x64.json`へ出力し、非x64はunsupported suffixで保存する。
 - [x] 比較用baselineの形式とtracked保存場所を決める（`benchmarks/windows-x64-baseline.json`）。directory追加に伴い`AGENTS.md`のtreeも更新する。
 - [x] 1,000-field object（scalar field）fixtureを作成する。
 - [x] 10,000 scalar validations fixtureを作成する。
@@ -753,13 +753,13 @@ performance targetを変更してreleaseする場合は、単なるProgress Log�
 
 ### Review
 
-- [ ] 実装者とは別のreviewerがread-only reviewを行う。
-- [ ] 利用可能なら`orca-supervised-final-review` skillで独立worktree reviewを実行する。
-- [ ] review scopeにproduction 3 files、tests、release helper、docs、CIを含める。
-- [ ] confirmed findingとunsupported observationを区別する。
-- [ ] valid/in-scope findingだけを最小修正する。
-- [ ] 修正ごとにfocused regressionを追加する。
-- [ ] 修正後にfull verificationを再実行する。
+- [x] 実装者とは別のreviewerがread-only reviewを行う。
+- [x] `orca-supervised-final-review` skillで独立worktree reviewを実行する。
+- [x] review scopeにproduction 3 files、tests、release helper、docs、CIを含める。
+- [x] confirmed findingとunsupported observationを区別する。
+- [x] valid/in-scope findingだけを最小修正する。
+- [x] 修正ごとにfocused regressionを追加する。
+- [x] 修正後にfull verificationを再実行する。
 
 ### Final verification commands
 
@@ -802,13 +802,13 @@ rtk xlflow test --session --no-save --json
 
 ### v1 completion gate
 
-- [ ] `docs/design.md`のDefinition of Doneを全項目確認した。
+- [x] `docs/design.md`のDefinition of Doneを全項目確認した。
 - [ ] 本ロードマップのM0-M8 exit gateをすべて満たした。
-- [ ] unresolved High/Medium review findingがない。
-- [ ] unverified platformを正確に表示している。
+- [x] unresolved High/Medium review findingがない。
+- [x] unverified platformを正確に表示している。
 - [ ] clean checkoutからverificationを再現できる。
-- [ ] release artifactを生成できる。
-- [ ] final commit SHAとartifact checksumをProgress Logへ記録した。
+- [x] release artifactを生成できる。
+- [x] implementation commit SHAとartifact checksumをProgress Logへ記録した。
 
 ## 14. Deferred beyond v1
 
@@ -851,6 +851,17 @@ rtk xlflow test --session --no-save --json
 ## 16. Progress Log
 
 新しい記録を上へ追加する。
+
+### 2026-09-21 — M8 independent review / Pass 2 completion
+
+- Status: `orca-supervised-final-review`の新規独立worktreeでPass 2を完了。`worker_done`を通常のOrca deliveryで受信し、報告をacknowledge、worker release、worktree削除まで完了した。
+- Review target: `f3d0434 docs: record independent review remediation`（base `8ec96e7`）。
+- Result: blockingなvalid/in-scope実装findingなし。`release-stage.ps1`のprotected root（repository root、`src`、`.git`、`.xlflow`、`build`）の同一・子孫・祖先拒否、source hash不変のfocused safety test、benchmarkのx64 pass / x86・unknown reject、非x64でのbaseline not-runとunsupported reportを独立に再確認した。
+- Follow-up: P3として、旧SHA参照とM8/M0 checklistのstale状態を本書で更新。benchmarkの`command`はcanonical public entry point `task benchmark`を記録する契約をspecへ明記した。
+- Verification evidence: Pass 2 workerの`git diff --check`、lint、analyze、production hygiene、test list（60件）、xlflow status（inactive/clean）はpass。Pass 1 remediationで`rtk task verify`、release-stage/verify、release-smoke、x64 benchmark、full behavioral tests（59 pass、intentional TODO 1件）、Public API compileをpass済み。
+- Unsupported/unverified: local and remote format gate failureはun-pinned xlflow/cache状態を含む環境差異として未解決。GitHub target workflow、Excel/VBE target CI、Windows 32-bit/macOS実機、clean checkout再現は未検証。
+- Implementation commit: `3593e01 fix: harden release and benchmark gates`。M7/MIT既存commitは`57e82c6`、`8ec96e7`。release payload SHA-256はM7記録を正とする。
+- Next task: clean checkout再現とGitHub/target CI実行環境が利用可能になった時点で、未検証項目を別gateとして確認する。実装上のM8 blocking findingは残っていない。
 
 ### 2026-09-21 — M8 independent review / Pass 1 remediation
 
