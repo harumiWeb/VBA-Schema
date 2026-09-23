@@ -1,7 +1,15 @@
-# VBA-Schema
+<div align="center">
+  <img src="docs/images/icon.png" width="160" alt="VBA-Schema logo" />
+</div>
 
-> **Declarative schema validation for VBA.**
-> **3 files. No reference setup. No implicit coercion.**
+<h1 align="center">VBA-Schema</h1>
+
+<p align="center">
+Declarative schema validation for VBA.
+3 files. No reference setup. No implicit coercion.
+</p>
+
+---
 
 VBA-Schema brings Zod-inspired runtime schema validation to ordinary VBA projects.
 
