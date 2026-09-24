@@ -154,6 +154,49 @@ Public Sub Test_Array_SupportsNestedSequences()
     XlflowAssert.AssertStrictEquals "$[0][1]", result.Issues.Item(1).Item("path")
 End Sub
 
+Public Sub Test_Array_ChildSchemaClassifiesSpecialElements()
+    ' Empty, Null, and Error Variant elements must reach the item schema
+    ' as classified states, in logical index order, without leaking into
+    ' constraint evaluation.
+    Dim arraySchema As VSchema
+    Set arraySchema = Schema.ArrayOf(Schema.Number())
+
+    Dim values(0 To 3) As Variant
+    values(0) = 1
+    values(1) = Null
+    values(2) = Empty
+    values(3) = CVErr(2042)
+
+    Dim result As VValidationResult
+    Set result = arraySchema.SafeParse(values)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 3, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "$[1]", result.Issues.Item(1).Item("path")
+    XlflowAssert.AssertStrictEquals "required", result.Issues.Item(1).Item("code")
+    XlflowAssert.AssertStrictEquals "$[2]", result.Issues.Item(2).Item("path")
+    XlflowAssert.AssertStrictEquals "invalid_type", result.Issues.Item(2).Item("code")
+    XlflowAssert.AssertStrictEquals "$[3]", result.Issues.Item(3).Item("path")
+    XlflowAssert.AssertStrictEquals "invalid_type", result.Issues.Item(3).Item("code")
+
+    Dim items As Collection
+    Set items = New Collection
+    items.Add 1
+    Dim nullValue As Variant
+    nullValue = Null
+    items.Add nullValue
+    Dim errorValue As Variant
+    errorValue = CVErr(2042)
+    items.Add errorValue
+
+    Set result = arraySchema.SafeParse(items)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 2, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "$[1]", result.Issues.Item(1).Item("path")
+    XlflowAssert.AssertStrictEquals "required", result.Issues.Item(1).Item("code")
+    XlflowAssert.AssertStrictEquals "$[2]", result.Issues.Item(2).Item("path")
+    XlflowAssert.AssertStrictEquals "invalid_type", result.Issues.Item(2).Item("code")
+End Sub
+
 Public Sub Test_Array_CollectionPreservesSpecialElements()
     Dim items As Collection
     Set items = New Collection

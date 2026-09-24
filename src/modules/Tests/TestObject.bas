@@ -209,6 +209,99 @@ Public Sub Test_Object_RejectsNothingAndEscapesSpecialPath()
     AssertIssue result.Issues.Item(1), expectedPath, "invalid_type"
 End Sub
 
+Public Sub Test_Object_RejectsPresentErrorVariantField()
+    Dim objectSchema As VSchema
+    Set objectSchema = Schema.ObjectSchema() _
+        .Field("field", Schema.Text())
+
+    Dim errorValue As Variant
+    errorValue = CVErr(2042)
+
+    Dim inputObject As Object
+    Set inputObject = CreateObject("Scripting.Dictionary")
+    inputObject.Add "field", errorValue
+
+    ' A present Error Variant is a distinct state from a missing field
+    ' and must reach the child schema as invalid_type, not required.
+    Dim result As VValidationResult
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    AssertIssue result.Issues.Item(1), "$.field", "invalid_type"
+    XlflowAssert.AssertStrictEquals "Error(2042)", result.Issues.Item(1).Item("received")
+End Sub
+
+Public Sub Test_Object_OptionalFieldRejectsPresentSpecialStates()
+    Dim objectSchema As VSchema
+    Set objectSchema = Schema.ObjectSchema() _
+        .Field("field", Schema.Text().OptionalField())
+
+    Dim inputObject As Object
+    Set inputObject = CreateObject("Scripting.Dictionary")
+
+    ' Field absence is the only state OptionalField allows.
+    Dim result As VValidationResult
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertTrue result.Success
+
+    Dim emptyValue As Variant
+    emptyValue = Empty
+    inputObject.Add "field", emptyValue
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertFalse result.Success
+    AssertIssue result.Issues.Item(1), "$.field", "invalid_type"
+
+    inputObject.Remove "field"
+    inputObject.Add "field", Null
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertFalse result.Success
+    AssertIssue result.Issues.Item(1), "$.field", "required"
+
+    Dim errorValue As Variant
+    errorValue = CVErr(2042)
+    inputObject.Remove "field"
+    inputObject.Add "field", errorValue
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertFalse result.Success
+    AssertIssue result.Issues.Item(1), "$.field", "invalid_type"
+End Sub
+
+Public Sub Test_Object_NullableFieldRejectsPresentEmptyAndError()
+    Dim objectSchema As VSchema
+    Set objectSchema = Schema.ObjectSchema() _
+        .Field("field", Schema.Text().Nullable())
+
+    Dim inputObject As Object
+    Set inputObject = CreateObject("Scripting.Dictionary")
+    inputObject.Add "field", Null
+
+    ' Nullable allows a present Null only; it does not cover absence.
+    Dim result As VValidationResult
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertTrue result.Success
+
+    Dim emptyValue As Variant
+    emptyValue = Empty
+    inputObject.Remove "field"
+    inputObject.Add "field", emptyValue
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertFalse result.Success
+    AssertIssue result.Issues.Item(1), "$.field", "invalid_type"
+
+    Dim errorValue As Variant
+    errorValue = CVErr(2042)
+    inputObject.Remove "field"
+    inputObject.Add "field", errorValue
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertFalse result.Success
+    AssertIssue result.Issues.Item(1), "$.field", "invalid_type"
+
+    inputObject.Remove "field"
+    Set result = objectSchema.SafeParse(inputObject)
+    XlflowAssert.AssertFalse result.Success
+    AssertIssue result.Issues.Item(1), "$.field", "required"
+End Sub
+
 Private Sub AssertIssue(ByVal issue As Object, ByVal expectedPath As String, ByVal expectedCode As String)
     If issue Is Nothing Then
         Err.Raise vbObjectError + 2299, "TestObject.AssertIssue", "Issue is required."
