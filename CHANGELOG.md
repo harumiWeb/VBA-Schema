@@ -2,11 +2,14 @@
 
 This file tracks releases made from Git tags. No version constant is embedded in the source payload.
 
-## Unreleased
+## v1.0.0 — 2026-09-24
+
+First stable release. The v1 contract is frozen as a validation-only library.
 
 - Froze the v1 validation-only contract: `docs/specs/v1-contract.md` now records explicit v1 non-goals (coercion, `.Default()`, unknown-field stripping, transformations, `Partial`/`Pick`/`Omit`, `Clone`/`Freeze`, Int64/Decimal parsing, timezone conversion, and code generation) and a locale policy stating that strict schemas never parse localized text.
 - Added Null/Empty/Error Variant regression coverage for constrained Text, Number, Boolean, and DateTime schemas, Object field states, and array/Collection elements.
 - Finished the public README for v1.0: documented schema mutability and shared child references, `Value` pass-through semantics, locale-independent validation, sample links, and verified-environment wording.
+- Hardened contract wording during the independent final review: the locale policy's `CStr` enumeration now covers the `Error(<n>)` descriptor path, the `Value` guarantee is scoped to no-transformation and Object reference identity, and the DateTime test fixture avoids locale-sensitive parsing.
 
 ## v0.2.0 — 2026-09-21
 
@@ -20,7 +23,3 @@ This file tracks releases made from Git tags. No version constant is embedded in
 - Added the standard MIT license text to `LICENSE`.
 - Added user-facing order, settings, and API-response samples together with sample-specific format, lint, and analyze checks.
 - Added a workflow that runs `source-check` first on `vMAJOR.MINOR.PATCH` tag pushes and attaches a three-module `VBA-Release-vX.Y.Z.zip` to the GitHub Release.
-
-## v1.0.0
-
-Not released.

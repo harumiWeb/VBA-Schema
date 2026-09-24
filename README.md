@@ -683,6 +683,6 @@ MIT License. See [`LICENSE`](LICENSE).
 
 ## Project Status
 
-VBA-Schema is preparing for its first stable release.
+`v1.0.0` is the first stable release.
 
-The public v1 contract is being treated as a compatibility boundary, so API and validation semantics are intentionally being stabilized before `v1.0.0`.
+The public v1 contract is a compatibility boundary: the API and validation semantics documented in [`docs/specs/v1-contract.md`](docs/specs/v1-contract.md) are stable for the `1.x` line.
