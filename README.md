@@ -150,6 +150,8 @@ End If
 
 `SafeParse` does not raise an error for ordinary validation failures. It returns a `VValidationResult` containing the validation result and structured issues.
 
+Runnable end-to-end examples — order import, application settings, and API payload validation — are available in [`sample/`](sample/README.md).
+
 ---
 
 ## Supported Schemas
@@ -370,6 +372,27 @@ If every branch fails, VBA-Schema returns one `invalid_union` issue at that path
 
 ---
 
+## Schema Mutability
+
+`VSchema` instances are mutable. Every builder call modifies and returns the same instance, and a schema registered as a child stays shared by reference.
+
+```vb
+Dim NameSchema As VSchema
+Set NameSchema = Schema.Text().Min(1)
+
+Dim UserSchema As VSchema
+Set UserSchema = Schema.ObjectSchema() _
+    .Field("name", NameSchema)
+
+NameSchema.Max(100)
+
+' UserSchema's "name" field now also enforces Max(100).
+```
+
+The same rule applies to `ArrayOf` item schemas and `UnionOf` branches: later modifications are visible through every reference. If you need an independent schema, build a separate instance with a new factory call. v1 has no `Clone` or `Freeze`.
+
+---
+
 ## Structured Validation Errors
 
 `SafeParse` returns a `VValidationResult`.
@@ -380,6 +403,8 @@ If every branch fails, VBA-Schema returns one `invalid_union` issue at that path
 | `Value`     | Original input value on success     |
 | `Issues`    | Structured validation issues        |
 | `ErrorText` | Human-readable error representation |
+
+`Value` is the original input value. VBA-Schema validates data; it does not transform it or generate typed VBA objects. For Object input, `Value` holds the same object reference that was passed in — not a copy.
 
 Each issue is a `Scripting.Dictionary` containing:
 
@@ -467,6 +492,15 @@ VBA frequently performs automatic conversions. VBA-Schema deliberately does not.
 ```
 
 This makes schema validation useful at trust boundaries, where silently accepting the wrong data type can hide bugs.
+
+Validation is also locale-independent. Strict schemas validate the existing VBA value and never parse localized text, so the same input produces the same result on every machine locale:
+
+```text
+Schema.Number().SafeParse("1.5")          -> invalid_type on every locale
+Schema.DateTime().SafeParse("2024-05-01") -> invalid_type on every locale
+```
+
+Conversions such as `CDbl`, `CDec`, `CDate`, `Val`, and `IsNumeric` are never applied to user-provided strings.
 
 ---
 
@@ -598,11 +632,11 @@ Some features that would significantly increase complexity are intentionally out
 
 The currently verified environment is:
 
-| Environment                 | Status                                    |
-| --------------------------- | ----------------------------------------- |
-| Windows 64-bit Office 2016+ | Verified                                  |
-| Windows 32-bit Office 2016+ | Compatibility-conscious, not yet verified |
-| macOS Office                | Compatibility-conscious, not yet verified |
+| Environment                 | Status                                                    |
+| --------------------------- | --------------------------------------------------------- |
+| Windows 64-bit Office 2016+ | Verified — the development and verification target        |
+| Windows 32-bit Office 2016+ | Unverified — compatibility-conscious, not guaranteed      |
+| macOS Office                | Unverified — compatibility-conscious, not guaranteed      |
 
 The core does not depend on the Excel Object Model or Windows API.
 

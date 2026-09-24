@@ -4,7 +4,9 @@ This file tracks releases made from Git tags. No version constant is embedded in
 
 ## Unreleased
 
-No changes yet.
+- Froze the v1 validation-only contract: `docs/specs/v1-contract.md` now records explicit v1 non-goals (coercion, `.Default()`, unknown-field stripping, transformations, `Partial`/`Pick`/`Omit`, `Clone`/`Freeze`, Int64/Decimal parsing, timezone conversion, and code generation) and a locale policy stating that strict schemas never parse localized text.
+- Added Null/Empty/Error Variant regression coverage for constrained Text, Number, Boolean, and DateTime schemas, Object field states, and array/Collection elements.
+- Finished the public README for v1.0: documented schema mutability and shared child references, `Value` pass-through semantics, locale-independent validation, sample links, and verified-environment wording.
 
 ## v0.2.0 — 2026-09-21
 

@@ -1,6 +1,6 @@
 # VBA-Schema v1 Development Roadmap
 
-Last updated: 2026-09-21
+Last updated: 2026-09-23
 
 This document is the execution roadmap for completing VBA-Schema v1 with the same design contract and verification criteria, even when work is handed to another contributor.
 
@@ -451,6 +451,13 @@ A handoff must not rely on the Progress Log alone; the next contributor must re-
 ## 16. Progress Log
 
 New entries are added at the top.
+
+### 2026-09-23 — v1.0 release hardening: contract freeze, special-Variant regression tests, locale policy, README
+
+- Status: Froze the v1 validation-only contract in `docs/specs/v1-contract.md` with explicit v1 non-goals (section 13) and a locale policy (section 12). Audited production conversion functions: no user-provided String parsing exists; conversions apply only to type-confirmed scalar values, `Str$` and fixed `Format$` tokens keep descriptors locale-independent, and `CStr` on Error Variants only extracts the trailing numeric token for `Error(<n>)` descriptors. Added Null/Empty/Error Variant regression tests across constrained Number/Text/Bool/DateTime schemas, Object field states (OptionalField/Nullable), and array/Collection elements. Finished the README for v1.0 (schema mutability, `Value` pass-through, locale section, sample links, compatibility wording).
+- Changed: `docs/specs/v1-contract.md`, `README.md`, `CHANGELOG.md`, `tasks/todo.md`, `src/modules/Tests/TestNumber.bas`, `TestText.bas`, `TestBool.bas`, `TestDateTime.bas`, `TestObject.bas`, `TestArray.bas`.
+- Commands run: `rtk task verify`, xlflow managed-session push/test/compile fixture, `rtk task release-smoke`, `rtk task release-stage`, `rtk task release-verify`, `rtk task release-package TAG=v1.0.0`.
+- Unverified: GitHub-hosted Excel/VBE jobs, a real stable tag push, macOS Office, and Windows 32-bit Office remain unverified.
 
 ### 2026-09-21 — English documentation and main README integration
 

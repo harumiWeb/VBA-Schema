@@ -69,6 +69,91 @@ Public Sub Test_Number_AcceptsFiniteDoubleOutsideDecimalRange()
     XlflowAssert.AssertStrictEquals "too_big", IssueValue(result, "code")
 End Sub
 
+Public Sub Test_Number_ConstraintsRejectNullBeforeComparison()
+    Dim nullValue As Variant
+    nullValue = Null
+
+    ' Null must be classified before any numeric boundary is reached;
+    ' in VBA "Null > boundary" evaluates to Null, not False.
+    Dim result As VValidationResult
+    Set result = Schema.Number().Min(0).SafeParse(nullValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "required", IssueValue(result, "code")
+    XlflowAssert.AssertStrictEquals "Null", IssueValue(result, "received")
+
+    Set result = Schema.Number().Max(10).SafeParse(nullValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "required", IssueValue(result, "code")
+
+    Set result = Schema.Number().WholeNumber().SafeParse(nullValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "required", IssueValue(result, "code")
+End Sub
+
+Public Sub Test_Number_ConstraintsRejectEmptyBeforeComparison()
+    Dim emptyValue As Variant
+    emptyValue = Empty
+
+    ' Empty must be classified before constraint evaluation; VBA would
+    ' otherwise coerce it to 0 and let it pass a Min(0) boundary.
+    Dim result As VValidationResult
+    Set result = Schema.Number().Min(0).SafeParse(emptyValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+    XlflowAssert.AssertStrictEquals "Empty", IssueValue(result, "received")
+
+    Set result = Schema.Number().Max(10).SafeParse(emptyValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+
+    Set result = Schema.Number().WholeNumber().SafeParse(emptyValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+End Sub
+
+Public Sub Test_Number_ConstraintsRejectErrorVariantBeforeComparison()
+    Dim errorValue As Variant
+    errorValue = CVErr(2042)
+
+    ' An Error Variant must be classified before any conversion or
+    ' comparison; CDec(CVErr(...)) would raise a runtime error.
+    Dim result As VValidationResult
+    Set result = Schema.Number().Min(0).SafeParse(errorValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+    XlflowAssert.AssertStrictEquals "Error(2042)", IssueValue(result, "received")
+
+    Set result = Schema.Number().Max(10).SafeParse(errorValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+
+    Set result = Schema.Number().WholeNumber().SafeParse(errorValue)
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertEquals 1, result.Issues.Count
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+End Sub
+
+Public Sub Test_Number_RejectsNumericStringsRegardlessOfLocale()
+    ' Strict schemas never parse localized numeric text, so these strings
+    ' are invalid_type on every machine locale.
+    Dim result As VValidationResult
+    Set result = Schema.Number().SafeParse("1.5")
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+
+    Set result = Schema.Number().SafeParse("1,5")
+    XlflowAssert.AssertFalse result.Success
+    XlflowAssert.AssertStrictEquals "invalid_type", IssueValue(result, "code")
+End Sub
+
 Private Function IssueValue(ByVal result As VValidationResult, ByVal Key As String) As String
     Dim issues As Collection
     Set issues = result.Issues

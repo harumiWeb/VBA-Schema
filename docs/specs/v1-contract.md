@@ -101,6 +101,8 @@ Functions returning `VSchema` or `VValidationResult`, and the `Value` property w
 
 `Issues` returns a snapshot on every call. Mutating the returned Collection or an Issue Dictionary does not change the internal Result state or `ErrorText`.
 
+On success, `Value` is the original input value. Validation never transforms, coerces, or copies the input; Object input keeps the same reference in `Value`.
+
 `ErrorText` uses this fixed grammar:
 
 ```text
@@ -339,3 +341,40 @@ Schema.ObjectSchema() _
     .Field("tags", Schema.ArrayOf(Schema.Text()).Length(3)) _
     .Strict()
 ```
+
+## 12. Locale policy
+
+Strict schemas validate the existing VBA value and do not parse localized textual representations of numbers, dates, or any other type. The same Variant input must produce the same validation result on every machine locale.
+
+```text
+Schema.Number().SafeParse("1.5")          -> invalid_type on every locale
+Schema.DateTime().SafeParse("2024-05-01") -> invalid_type on every locale
+```
+
+The following rules keep validation semantics independent of the host locale:
+
+- Type acceptance is decided by Variant-state classification (`IsNull`, `IsEmpty`, `IsError`, `IsObject`, `IsArray`) and `VarType`. User-provided Strings are never interpreted; `IsNumeric`, `Val`, and string-input conversion calls such as `CDbl(...)` or `CDate(...)` are not used to accept input.
+- Conversion functions (`CDbl`, `CSng`, `CDec`, `CCur`, `CLng`, `CBool`, `CDate`) are applied only to values whose Variant type has already been confirmed. Numeric-to-numeric and Date-to-Date conversions do not consult the machine locale.
+- `CStr` is applied only to String inputs, integral Long values, and late-bound member reads. It is never applied to a fractional number, because `CStr` renders the decimal separator per machine locale.
+- `received` descriptors and `ErrorText` are locale-independent as defined in section 4: `Number(...)` uses `Str$` (always a `.` decimal separator), `Date(...)` uses explicit `yyyy-mm-dd` and `hh:nn:ss` `Format$` tokens, and `Error(<n>)` extracts the trailing numeric token from the Variant error text.
+- String, field-name, and Literal/Enum comparisons use binary comparison (`StrComp(..., vbBinaryCompare)`).
+
+If a future version adds an explicit coercion API, its locale policy must be defined as a separate public contract rather than silently inheriting host-locale parsing behavior.
+
+## 13. v1 non-goals
+
+The following capabilities are intentionally outside the v1 public contract. They are deferred design topics, not missing features; their absence is part of the stable v1 boundary.
+
+- Implicit coercion of any kind
+- An explicit coercion API (for example `Schema.Coerce.*`)
+- `.Default()` or any other default-value injection
+- Stripping unknown Object fields (`.Strict()` rejects them; validation never rewrites input)
+- Arbitrary transformation or callback refinement (`.Transform()`, `.Refine()`, preprocess pipelines)
+- `Partial`, `Pick`, `Omit`, or other Object-shape derivation helpers
+- `Clone` or `Freeze`; schemas remain mutable and child schemas remain shared by reference as defined in section 8
+- Int64/LongLong or Decimal Variant parsing and acceptance APIs
+- `DateOnly` schemas and UTC/local timezone conversion
+- Discriminated Union optimization
+- A `Parse` API that raises on validation failure
+- JSON parsing, HTTP requests, and worksheet reading
+- Schema inference and code generation (for example OpenAPI generation)
