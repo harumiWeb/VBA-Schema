@@ -101,7 +101,7 @@ Functions returning `VSchema` or `VValidationResult`, and the `Value` property w
 
 `Issues` returns a snapshot on every call. Mutating the returned Collection or an Issue Dictionary does not change the internal Result state or `ErrorText`.
 
-On success, `Value` is the original input value. Validation never transforms, coerces, or copies the input; Object input keeps the same reference in `Value`.
+On success, `Value` is the original input value. Validation never transforms or coerces the input; Object input keeps the same reference in `Value`.
 
 `ErrorText` uses this fixed grammar:
 
@@ -355,7 +355,7 @@ The following rules keep validation semantics independent of the host locale:
 
 - Type acceptance is decided by Variant-state classification (`IsNull`, `IsEmpty`, `IsError`, `IsObject`, `IsArray`) and `VarType`. User-provided Strings are never interpreted; `IsNumeric`, `Val`, and string-input conversion calls such as `CDbl(...)` or `CDate(...)` are not used to accept input.
 - Conversion functions (`CDbl`, `CSng`, `CDec`, `CCur`, `CLng`, `CBool`, `CDate`) are applied only to values whose Variant type has already been confirmed. Numeric-to-numeric and Date-to-Date conversions do not consult the machine locale.
-- `CStr` is applied only to String inputs, integral Long values, and late-bound member reads. It is never applied to a fractional number, because `CStr` renders the decimal separator per machine locale.
+- `CStr` is applied only to String inputs, integral Long values, late-bound member reads, and the Error Variant text used by `Error(<n>)` descriptor generation (where only the trailing numeric token is consumed, as described in the next bullet). It is never applied to a fractional number, because `CStr` renders the decimal separator per machine locale.
 - `received` descriptors and `ErrorText` are locale-independent as defined in section 4: `Number(...)` uses `Str$` (always a `.` decimal separator), `Date(...)` uses explicit `yyyy-mm-dd` and `hh:nn:ss` `Format$` tokens, and `Error(<n>)` extracts the trailing numeric token from the Variant error text.
 - String, field-name, and Literal/Enum comparisons use binary comparison (`StrComp(..., vbBinaryCompare)`).
 

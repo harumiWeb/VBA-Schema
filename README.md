@@ -384,7 +384,8 @@ Dim UserSchema As VSchema
 Set UserSchema = Schema.ObjectSchema() _
     .Field("name", NameSchema)
 
-NameSchema.Max(100)
+' Max modifies NameSchema in place and returns the same instance.
+Set NameSchema = NameSchema.Max(100)
 
 ' UserSchema's "name" field now also enforces Max(100).
 ```

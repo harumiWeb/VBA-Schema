@@ -3,7 +3,7 @@ Option Explicit
 
 Public Sub Test_DateTime_AcceptsOnlyDateVariant()
     Dim result As VValidationResult
-    Set result = Schema.DateTime().SafeParse(CDate("2026-09-21 12:34:56"))
+    Set result = Schema.DateTime().SafeParse(DateSerial(2026, 9, 21) + TimeSerial(12, 34, 56))
     XlflowAssert.AssertTrue result.Success
 
     Set result = Schema.DateTime().SafeParse("2026-09-21")
