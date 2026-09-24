@@ -112,7 +112,8 @@ Public Sub Test_Text_ConstraintsRejectErrorVariantBeforeEvaluation()
     errorValue = CVErr(2042)
 
     ' An Error Variant must be classified before Length, Pattern, or
-    ' Email is evaluated; CStr(CVErr(...)) would raise a runtime error.
+    ' Email is evaluated; otherwise CStr could turn it into "Error <n>"
+    ' and let it pass through constraints as ordinary text.
     Dim result As VValidationResult
     Set result = Schema.Text().Length(3).SafeParse(errorValue)
     XlflowAssert.AssertFalse result.Success
